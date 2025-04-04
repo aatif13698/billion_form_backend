@@ -15,6 +15,7 @@ const ObjectId = Schema.ObjectId;
 const companySchema = new Schema(
   {
     userId: { type: ObjectId, ref: "user", index: true }, // Index for role-based queries
+    serialNumber: { type: String, default : null },
     name: { type: String, required: true },
     subDomain: { type: String },
     port: { type: Number, required: IS_DEV },

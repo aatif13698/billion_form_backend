@@ -9,6 +9,7 @@ const userSchema = new Schema(
   {
     role: { type: ObjectId, ref: "role", index: true }, // Index for role-based queries
     roleId: { type: Number },
+    serialNumber: { type: String, default : null },
     firstName: { type: String, required: true },
     lastName: { type: String },
     middleName: { type: String },
@@ -91,6 +92,7 @@ const userSchema = new Schema(
 
     profileImage: { type: String, default: null },
     profileCreated: { type: Boolean, default: false },
+    companyId:  { type: ObjectId, ref: "Company", default : null, index: true },
 
     verificationOtp: { type: String },
     otpGeneratedAt: { type: Date },

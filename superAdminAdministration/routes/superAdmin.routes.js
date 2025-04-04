@@ -2,17 +2,22 @@
 
 const express = require("express");
 require('dotenv').config(); // Load environment variables first
-const crypto = require("crypto")
+const crypto = require("crypto");
+const bcrypt = require("bcrypt")
 
 
 const router = express.Router();
 
 const superAdminController = require("../controller/superadmin.controller");
-const { validateLoginInput, startCompanyServer, validateClientInput } = require("../../utils/commonFunction");
+const { validateLoginInput, startCompanyServer, validateClientInput, getSerialNumber } = require("../../utils/commonFunction");
 
 const { superAdminAuth } = require("../../middleware/authorization/superAdmin");
 const customFieldModel = require("../../model/customField.model");
 const companyModel = require("../../model/company.model");
+const userModel = require("../../model/user.model");
+const CustomError = require("../../utils/customError");
+const httpsStatusCode = require("../../utils/https-status-code");
+const message = require("../../utils/message");
 
 const IS_DEV = process.env.NODE_ENV === 'development';
 const BASE_DOMAIN = IS_DEV ? 'localhost' : 'billionforms.com';
@@ -23,35 +28,44 @@ const BASE_PORT = process.env.PORT || 3000;
 
 
 // handling base company of application
-router.post('/create-company', async (req, res) => {
+router.post('/create-company', async (req, res, next) => {
   try {
     const { name, subDomain, adminEmail, adminPassword } = req.body;
 
-    console.log("req.body", req.body);
-
-    // Check if subdomain already exists
-    const existing = await companyModel.findOne({ subDomain: subDomain });
-
-    console.log("existing", existing);
+    const existing = await companyModel.findOne({
+      $or: [{ adminEmail: adminEmail.toLowerCase() }, { subDomain: subDomain }],
+    });
 
     if (existing) {
       return res.status(400).json({ error: 'Subdomain already taken' });
     }
 
-    const password = crypto.randomBytes(8).toString('hex');
+    const user = await userModel.findOne({email :  adminEmail});
+
+    if(!user){
+      return res.status(httpsStatusCode.NotFound).json({ error: message.lblClientNotFound });
+    }
+
+    const saltRounds = 10; 
+    const hashedPassword = await bcrypt.hash(adminPassword, saltRounds);
 
     // In dev, assign next available port
     const port = IS_DEV ? await getNextAvailablePort() : null;
 
+    const serial = await getSerialNumber("company");
+
     const newCompany = new companyModel({
+      serialNumber : serial,
       name: name,
       subDomain: subDomain.toLowerCase(),
       port,
       adminEmail,
-      adminPassword: adminPassword
+      adminPassword: hashedPassword
     });
 
-    await newCompany.save();
+    const company =  await newCompany.save();
+    user.companyId = company._id;
+    await user.save()
 
     // Email configuration
     const loginUrl = IS_DEV
@@ -59,20 +73,19 @@ router.post('/create-company', async (req, res) => {
       : `http://${subDomain}.${BASE_DOMAIN}/login`;
 
 
-    // In dev, start a new server instance for this company
-    if (IS_DEV) {
-      // startCompanyServer(port);
-    }
-
-    res.status(201).json({ message: 'Company created successfully', url: loginUrl });
+    return  res.status(httpsStatusCode.Created).json({ message: 'Company created successfully', url: loginUrl });
   } catch (error) {
-    res.status(500).json({ error: error.message });
+    return  res.status(httpsStatusCode.InternalServerError).json({ error: error.message });
   }
 });
 
 
+// get company with pagination and filter
+router.get('/get/company', superAdminAuth, superAdminController.getCompanyList)
 
 
+// get client
+router.get('/get/client/notsetuped', superAdminAuth, superAdminController.getClients)
 
 
 
@@ -91,10 +104,11 @@ router
 
 
 // create client
-router
-  .route("/create/cleint")
-  .post(validateClientInput, superAdminController.createClient);
+router.route("/create/cleint").post(validateClientInput, superAdminController.createClient);
 
+
+// get clients
+router.get('/get/client', superAdminAuth, superAdminController.getClientsList)
 
 // Create a new custom field
 router.post('/custom-fields', superAdminAuth, async (req, res) => {

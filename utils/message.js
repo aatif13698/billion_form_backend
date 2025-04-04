@@ -81,6 +81,17 @@ module.exports = {
     lblClientFoundSuccessfully: "Client found successfully!",
     lblClientSoftDeletedSuccess: "Client soft deleted successfully!",
     lblClientRestoredSuccess: "Client restored succesfully!",
+
+
+    // company
+    lblCompanyNotFound: "Company not found!",
+    lblCompanyAlreadyExists: "Company already exists with this email or phone!",
+    lblCompanyCreatedSuccess: "Company created successfully!",
+    lblCompanyUpdatedSuccess: "Company updated successfully!",
+    lblCompanyFoundSuccessfully: "Company found successfully!",
+    lblCompanySoftDeletedSuccess: "Company soft deleted successfully!",
+    lblCompanyRestoredSuccess: "Company restored succesfully!",
+  
   
   
   

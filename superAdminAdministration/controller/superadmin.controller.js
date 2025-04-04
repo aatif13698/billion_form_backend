@@ -8,7 +8,9 @@ const httpsStatusCode = require("../../utils/https-status-code");
 const message = require("../../utils/message");
 require('dotenv').config(); // Load environment variables first
 
-const Roles = require("../../model/roles.model") ;
+const Roles = require("../../model/roles.model");
+const { getSerialNumber } = require("../../utils/commonFunction");
+const companyModel = require("../../model/company.model");
 
 
 const config = {
@@ -26,16 +28,16 @@ exports.login = async (req, res, next) => {
       ? { email: identifier.toLowerCase() }
       : { phone: identifier };
 
-      console.log("query",query);
-      
+    console.log("query", query);
+
 
 
     const user = await User.findOne(query)
       .populate("role")
       .select("+password");
 
-      console.log("user",user);
-      
+    console.log("user", user);
+
 
     if (!user) {
       return res.status(401).json({
@@ -135,7 +137,7 @@ exports.createClient = async (req, res, next) => {
       .select("+password");
 
     if (existingUser) {
-      return res.status(409).json({
+      return res.status(httpsStatusCode.Conflict).json({
         success: false,
         message: message.lblClientAlreadyExists || "Client already exists",
         errorCode: "CLIENT_EXISTS",
@@ -147,18 +149,22 @@ exports.createClient = async (req, res, next) => {
     const hashedPassword = await bcrypt.hash(password, saltRounds);
     const role = await Roles.findOne({ id: 2 });
 
+    const serial = await getSerialNumber("client");
+
     // Create new user
     const newUser = new User({
+      serialNumber : serial,
       firstName,
       lastName,
-      email: email.toLowerCase(), 
+      email: email.toLowerCase(),
       phone,
       password: hashedPassword,
-      tc: true, 
+      tc: true,
       roleId: 2,
-      role: role?._id, 
-      createdBy: req.user?._id, 
-      isCreatedBySuperAdmin: true  
+      role: role?._id,
+      createdBy: req.user?._id,
+      isCreatedBySuperAdmin: true,
+      isUserVerified: true
     });
 
     const savedUser = await newUser.save();
@@ -188,3 +194,138 @@ exports.createClient = async (req, res, next) => {
     });
   }
 };
+
+
+// get client
+exports.getClients = async (req, res, next) => {
+  try {
+    let filters = {
+      deletedAt: null,
+      companyId: null,
+      roleId: 2,
+    };
+    const [clients] = await Promise.all([
+      User.find(filters)
+    ]);
+    return res.status(httpsStatusCode.OK).json({
+      success: true,
+      message: message.lblClientFoundSuccessfully,
+      data: {
+        user: clients,
+      },
+    });
+  } catch (error) {
+    console.error("Client creation error:", error);
+    return res.status(httpsStatusCode.InternalServerError).json({
+      success: false,
+      message: "Internal server error",
+      errorCode: "SERVER_ERROR",
+      error: process.env.NODE_ENV === "development" ? error.message : undefined,
+    });
+  }
+};
+
+
+
+
+// get clients list with pagination
+
+exports.getClientsList = async (req, res, next) => {
+  try {
+    const { keyword = '', page = 1, perPage = 10, } = req.query;
+
+    
+    const limit = perPage 
+    const skip = (page - 1) * limit;
+    let filters = {
+      deletedAt: null,
+      roleId: 2,
+      ...(keyword && {
+        $or: [
+          { firstName: { $regex: keyword.trim(), $options: "i" } },
+          { lastName: { $regex: keyword.trim(), $options: "i" } },
+          { email: { $regex: keyword.trim(), $options: "i" } },
+          { phone: { $regex: keyword.trim(), $options: "i" } },
+          { serialNumber: { $regex: keyword.trim(), $options: "i" } },
+          {
+            $expr: {
+              $regexMatch: {
+                input: { $concat: ["$firstName", " ", "$lastName"] },
+                regex: keyword.trim(),
+                options: "i",
+              },
+            },
+          },
+        ],
+      }),
+    };
+
+    const [clients, total] = await Promise.all([
+      User.find(filters).skip(skip).limit(limit).sort({ _id: -1 }).populate('companyId'),
+      User.countDocuments(filters),
+    ]);
+
+    return res.status(httpsStatusCode.OK).json({
+      success: true,
+      message: message.lblClientFoundSuccessfully,
+      data: {
+        data: clients,
+        total: total
+      },
+    });
+  } catch (error) {
+    console.error("Client creation error:", error);
+    return res.status(httpsStatusCode.InternalServerError).json({
+      success: false,
+      message: "Internal server error",
+      errorCode: "SERVER_ERROR",
+      error: process.env.NODE_ENV === "development" ? error.message : undefined,
+    });
+  }
+};
+
+
+
+// get company with pagination
+exports.getCompanyList = async (req, res, next) => {
+  try {
+    const { keyword = '', page = 1, perPage = 10, } = req.query;
+    const limit = perPage 
+    const skip = (page - 1) * limit;
+    let filters = {
+      deletedAt: null,
+      adminEmail :  { $ne: process.env.SUPER_ADMIN_EMAIL },
+      ...(keyword && {
+        $or: [
+          { name: { $regex: keyword.trim(), $options: "i" } },
+          { adminEmail: { $regex: keyword.trim(), $options: "i" } },
+          { subDomain: { $regex: keyword.trim(), $options: "i" } },
+          { serialNumber: { $regex: keyword.trim(), $options: "i" } },
+        ],
+      }),
+    };
+
+    const [companies, total] = await Promise.all([
+      companyModel.find(filters).skip(skip).limit(limit).sort({ _id: -1 }),
+      companyModel.countDocuments(filters),
+    ]);
+
+    return res.status(httpsStatusCode.OK).json({
+      success: true,
+      message: message.lblCompanyFoundSuccessfully,
+      data: {
+        data: companies,
+        total: total
+      },
+    });
+  } catch (error) {
+    console.error("company fetching error:", error);
+    return res.status(httpsStatusCode.InternalServerError).json({
+      success: false,
+      message: "Internal server error",
+      errorCode: "SERVER_ERROR",
+      error: process.env.NODE_ENV === "development" ? error.message : undefined,
+    });
+  }
+};
+

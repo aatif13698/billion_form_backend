@@ -10,5 +10,13 @@ const roles = [
 
 
 
+const serialNumber = [
+    { collectionName : "client", prefix: "CL"},
+    { collectionName : "company", prefix: "CO"},
+]
+
+
+
 
 exports.roles = roles;
+exports.serialNumber = serialNumber;

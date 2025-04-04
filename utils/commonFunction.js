@@ -8,6 +8,7 @@ const crypto = require('crypto')
 const data = require("../utils/constants");
 const companyModel = require("../model/company.model");
 const httpsStatusCode = require("./https-status-code");
+const SerialNumber = require("../model/serialNumber.model");
 
 
 
@@ -37,6 +38,25 @@ async function insertRole() {
     })
     .finally(() => { });
 }
+
+
+
+async function insertSerialNumber() {
+  SerialNumber.countDocuments({})
+    .exec()
+    .then((count) => {
+      if (count === 0) {
+        // Insert predefined roles into the Role collection
+        return SerialNumber.insertMany(data.serialNumber);
+      } else {
+        console.log("Serial Number already exist in the database.");
+      }
+    })
+    .catch((err) => {
+      console.error("Error in inserting serial number:", err);
+    })
+}
+
 
 async function createSuperAdmin() {
   try {
@@ -73,43 +93,43 @@ async function createSuperAdmin() {
 
     // Handling default company creation for super admin
 
-      const companyName = process.env.SUPER_ADMIN_COMPANY_NAME;
-      const subdomain = process.env.SUPER_ADMIN_SUB_DOMAIN_NAME;
-      const adminEmail = process.env.SUPER_ADMIN_EMAIL;
+    const companyName = process.env.SUPER_ADMIN_COMPANY_NAME;
+    const subdomain = process.env.SUPER_ADMIN_SUB_DOMAIN_NAME;
+    const adminEmail = process.env.SUPER_ADMIN_EMAIL;
 
-      // Check if subdomain already exists
-      const existing = await companyModel.findOne({ subdomain });
-      if (existing) {
-        return res.status(httpsStatusCode.BadRequest).json({ error: 'Subdomain already taken' });
-      }
+    // Check if subdomain already exists
+    const existing = await companyModel.findOne({ subdomain });
+    if (existing) {
+      return res.status(httpsStatusCode.BadRequest).json({ error: 'Subdomain already taken' });
+    }
 
-      const password2 = crypto.randomBytes(8).toString('hex');
+    const password2 = crypto.randomBytes(8).toString('hex');
 
-      // In dev, assign next available port
-      const port = IS_DEV ? await getNextAvailablePort() : null;
+    // In dev, assign next available port
+    const port = IS_DEV ? await getNextAvailablePort() : null;
 
-      const newCompany = new companyModel({
-        name: companyName,
-        subDomain: subdomain.toLowerCase(),
-        port,
-        adminEmail,
-        adminPassword: password2
-      });
+    const newCompany = new companyModel({
+      name: companyName,
+      subDomain: subdomain.toLowerCase(),
+      port,
+      adminEmail,
+      adminPassword: password2
+    });
 
-      await newCompany.save();
+    await newCompany.save();
 
-      // Email configuration
-      const loginUrl = IS_DEV
-        ? `http://localhost:${port}/login`
-        : `http://${subdomain}.${BASE_DOMAIN}/login`;
+    // Email configuration
+    const loginUrl = IS_DEV
+      ? `http://localhost:${port}/login`
+      : `http://${subdomain}.${BASE_DOMAIN}/login`;
 
 
-      // In dev, start a new server instance for this company
-      if (IS_DEV) {
-        startCompanyServer(port);
-      }
+    // In dev, start a new server instance for this company
+    if (IS_DEV) {
+      startCompanyServer(port);
+    }
 
-      console.log({ message: 'Company created successfully', url: loginUrl });
+    console.log({ message: 'Company created successfully', url: loginUrl });
 
 
     console.log("super admin create successfully");
@@ -165,7 +185,7 @@ const validateLoginInput = (req, res, next) => {
 };
 
 const validateClientInput = (req, res, next) => {
-  const {firstName, lastName, email, phone, password } = req.body;
+  const { firstName, lastName, email, phone, password } = req.body;
 
   // Check if required fields are present
   if (!firstName || !lastName || !email || !phone || !password) {
@@ -185,7 +205,7 @@ const validateClientInput = (req, res, next) => {
   const isValidPhone = phoneRegex.test(phone);
 
   // If identifier is neither a valid email nor a valid phone number
-  if (!isValidEmail ) {
+  if (!isValidEmail) {
     return res.status(httpsStatusCode.BadRequest).json({
       success: false,
       message: "Email must be a valid email",
@@ -193,7 +213,7 @@ const validateClientInput = (req, res, next) => {
     });
   }
 
-  if( !isValidPhone){
+  if (!isValidPhone) {
     return res.status(httpsStatusCode.BadRequest).json({
       success: false,
       message: "Phone must be a valid 10-digit phone number",
@@ -209,12 +229,15 @@ const validateClientInput = (req, res, next) => {
 const identifyCompany = async (req, res, next) => {
   const host = req.headers.host;
   const origin = req.headers.origin;
-  
+
 
   if (IS_DEV) {
     // const port = parseInt(host.split(':')[1] || BASE_PORT);  
-    const port = parseInt(origin.match(/\d{4}$/)[0] || BASE_PORT);
+    const port = parseInt(origin?.match(/\d{4}$/)[0] || BASE_PORT);
+
+    console.log("port",port);
     
+
     const company = await companyModel.findOne({ port });
     req.company = company;
   } else {
@@ -250,6 +273,24 @@ async function getNextAvailablePort() {
 }
 
 
+// get serial number
+const getSerialNumber = async (collection) => {
+  try {
+    const result = await SerialNumber.findOneAndUpdate({ collectionName: collection }, { $inc: { nextNum: 1 } })
+    if (result) {
+      const currentYear = new Date().getFullYear().toString().slice(-2);
+      const serialNumber = `AES-BF-${currentYear}-${result.prefix + result.nextNum}`
+      return serialNumber
+    }
+    else {
+      return null
+    }
+  } catch (error) {
+    return null
+  }
+}
+
+
 // Export the functions
 module.exports = {
   insertRole,
@@ -258,5 +299,7 @@ module.exports = {
   startCompanyServer,
   identifyCompany,
   getNextAvailablePort,
-  validateClientInput
+  validateClientInput,
+  insertSerialNumber,
+  getSerialNumber
 };
