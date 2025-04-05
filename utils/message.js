@@ -81,6 +81,7 @@ module.exports = {
     lblClientFoundSuccessfully: "Client found successfully!",
     lblClientSoftDeletedSuccess: "Client soft deleted successfully!",
     lblClientRestoredSuccess: "Client restored succesfully!",
+    lblClientIdrequired: "Client Id id required!",
 
 
     // company
@@ -91,6 +92,7 @@ module.exports = {
     lblCompanyFoundSuccessfully: "Company found successfully!",
     lblCompanySoftDeletedSuccess: "Company soft deleted successfully!",
     lblCompanyRestoredSuccess: "Company restored succesfully!",
+    lblCompanyIdrequired: "Company Id id required!",
   
   
   

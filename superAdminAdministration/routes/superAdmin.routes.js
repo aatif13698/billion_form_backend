@@ -24,9 +24,6 @@ const BASE_DOMAIN = IS_DEV ? 'localhost' : 'billionforms.com';
 const BASE_PORT = process.env.PORT || 3000;
 
 
-
-
-
 // handling base company of application
 router.post('/create-company', async (req, res, next) => {
   try {
@@ -40,13 +37,13 @@ router.post('/create-company', async (req, res, next) => {
       return res.status(400).json({ error: 'Subdomain already taken' });
     }
 
-    const user = await userModel.findOne({email :  adminEmail});
+    const user = await userModel.findOne({ email: adminEmail });
 
-    if(!user){
+    if (!user) {
       return res.status(httpsStatusCode.NotFound).json({ error: message.lblClientNotFound });
     }
 
-    const saltRounds = 10; 
+    const saltRounds = 10;
     const hashedPassword = await bcrypt.hash(adminPassword, saltRounds);
 
     // In dev, assign next available port
@@ -55,7 +52,7 @@ router.post('/create-company', async (req, res, next) => {
     const serial = await getSerialNumber("company");
 
     const newCompany = new companyModel({
-      serialNumber : serial,
+      serialNumber: serial,
       name: name,
       subDomain: subDomain.toLowerCase(),
       port,
@@ -63,7 +60,7 @@ router.post('/create-company', async (req, res, next) => {
       adminPassword: hashedPassword
     });
 
-    const company =  await newCompany.save();
+    const company = await newCompany.save();
     user.companyId = company._id;
     await user.save()
 
@@ -73,28 +70,89 @@ router.post('/create-company', async (req, res, next) => {
       : `http://${subDomain}.${BASE_DOMAIN}/login`;
 
 
-    return  res.status(httpsStatusCode.Created).json({ message: 'Company created successfully', url: loginUrl });
+    return res.status(httpsStatusCode.Created).json({ message: 'Company created successfully', url: loginUrl });
   } catch (error) {
-    return  res.status(httpsStatusCode.InternalServerError).json({ error: error.message });
+    return res.status(httpsStatusCode.InternalServerError).json({ error: error.message });
   }
 });
 
+// update company
+router.post('/update-company', async (req, res, next) => {
+  try {
+    const { companyId, name, subDomain, adminPassword } = req.body;
+
+    console.log("req.body", req.body);
+
+
+    // Validate required fields
+    if (!companyId || !name || !subDomain) {
+      return res.status(httpsStatusCode.BadRequest).json({ error: 'Missing required fields' });
+    }
+
+    // Find the company
+    const company = await companyModel.findById(companyId);
+    if (!company) {
+      return res.status(httpsStatusCode.NotFound).json({ error: 'Company not found' });
+    }
+
+    // Check for subdomain conflict (excluding current company)
+    const existingSubdomain = await companyModel.findOne({
+      _id: { $ne: companyId },
+      subDomain: subDomain.toLowerCase(),
+    });
+
+    if (existingSubdomain) {
+      return res.status(httpsStatusCode.BadRequest).json({ error: 'Subdomain already taken' });
+    }
+
+    // Update allowed fields
+    if (adminPassword) {
+      const hashedPassword = await bcrypt.hash(adminPassword, 10);
+      company.adminPassword = hashedPassword;
+    }
+
+    company.name = name;
+    company.subDomain = subDomain.toLowerCase();
+
+    await company.save();
+
+    // Update login URL for redirection
+    const loginUrl = IS_DEV
+      ? `http://localhost:${company.port}/login`
+      : `http://${company.subDomain}.${BASE_DOMAIN}/login`;
+
+    return res.status(httpsStatusCode.OK).json({
+      message: 'Company updated successfully',
+      url: loginUrl,
+    });
+
+  } catch (error) {
+    console.error("Error updating company:", error);
+    return res.status(httpsStatusCode.INTERNAL_SERVER_ERROR).json({
+      error: 'Internal server error',
+      debug: process.env.NODE_ENV === 'development' ? error.message : undefined
+    });
+  }
+});
+
+router.delete('/softdelete-company',superAdminAuth, superAdminController.softDeleteCompany);
+
+router.post('/restore-company',superAdminAuth, superAdminController.restoreCompany);
 
 // get company with pagination and filter
-router.get('/get/company', superAdminAuth, superAdminController.getCompanyList)
+router.get('/get/company', superAdminAuth, superAdminController.getCompanyList);
 
+// get company
+router.get('/get/company/:id', superAdminAuth, superAdminController.getCompany);
 
-// get client
-router.get('/get/client/notsetuped', superAdminAuth, superAdminController.getClients)
-
-
+// active inactive company
+router.post("/activeInactive/company", superAdminAuth, superAdminController.activeInactiveCompany);
 
 // Helper function to find next available port
 async function getNextAvailablePort() {
   const lastCompany = await companyModel.findOne().sort({ port: -1 });
   return (lastCompany?.port || BASE_PORT) + 1;
 }
-
 
 
 // Super Admin Login API
@@ -106,9 +164,15 @@ router
 // create client
 router.route("/create/cleint").post(validateClientInput, superAdminController.createClient);
 
-
 // get clients
-router.get('/get/client', superAdminAuth, superAdminController.getClientsList)
+router.get('/get/client', superAdminAuth, superAdminController.getClientsList);
+
+// active inactive client
+router.post("/activeInactive/client", superAdminAuth, superAdminController.activeInactive);
+
+// get client
+router.get('/get/client/notsetuped', superAdminAuth, superAdminController.getClients)
+
 
 // Create a new custom field
 router.post('/custom-fields', superAdminAuth, async (req, res) => {

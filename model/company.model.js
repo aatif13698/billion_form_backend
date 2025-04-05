@@ -24,7 +24,7 @@ const companySchema = new Schema(
       trim: true, sparse: true, index: true
     }, 
     adminPassword: { type: String, required: true },
-    isActive: { type: Boolean, default: true },
+    isActive: { type: Boolean, default: false },
     deletedAt: { type: Date, default: null, index: true }, 
   },
   { timestamps: true }

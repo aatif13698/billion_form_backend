@@ -38,7 +38,8 @@ const BASE_PORT = process.env.PORT || 3000;
 
 // import routes 
 const welcomeRouter = require("./routes/welcome");
-const superAdminRouter = require("./superAdminAdministration/routes/superAdmin.routes");
+const superAdminAuthRouter = require("./commonAuthentication/routes/superadminAuth.routes");
+const superAdminAdministrationhRouter = require("./superAdminAdministration/routes/superAdmin.routes");
 const adminRouter = require("./adminAdministration/routes/admin.routes");
 
 // impoprt common functions
@@ -53,7 +54,8 @@ app.use(errorHandler);
 
 // Routes for different roles
 app.use("/api", welcomeRouter.router);
-app.use("/api/superadmin/auth", superAdminRouter.router);
+app.use("/api/superadmin/auth", superAdminAuthRouter.router);
+app.use("/api/superadmin/administration", superAdminAdministrationhRouter.router);
 app.use("/api/admin", adminRouter.router);
 
 

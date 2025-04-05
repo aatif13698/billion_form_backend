@@ -252,6 +252,33 @@ const identifyCompany = async (req, res, next) => {
   next();
 };
 
+
+const restrictOtherCompany = async (req, res, next) => {
+  const host = req.headers.host;
+  const origin = req.headers.origin;
+
+
+  if (IS_DEV) {
+    // const port = parseInt(host.split(':')[1] || BASE_PORT);  
+    const port = parseInt(origin?.match(/\d{4}$/)[0] || BASE_PORT);
+
+    console.log("port",port);
+    
+
+    const company = await companyModel.findOne({ port });
+    req.company = company;
+  } else {
+    const subdomain = host.split('.')[0];
+    const company = await companyModel.findOne({ subdomain });
+    req.company = company;
+  }
+
+  if (!req.company) {
+    return res.status(404).json({ error: 'Company not found' });
+  }
+  next();
+};
+
 function startCompanyServer(port) {
   const companyApp = express();
   companyApp.use(express.json());
@@ -301,5 +328,6 @@ module.exports = {
   getNextAvailablePort,
   validateClientInput,
   insertSerialNumber,
-  getSerialNumber
+  getSerialNumber,
+  restrictOtherCompany
 };
