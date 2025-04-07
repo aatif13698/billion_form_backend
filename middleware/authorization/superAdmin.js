@@ -32,7 +32,7 @@ exports.superAdminAuth = async (req, res, next) => {
   try {
     // Verify token with PRIVATEKEY
     const decoded = jwt.verify(token, PRIVATEKEY);
-    console.log("Decoded Token:", decoded);
+    // console.log("Decoded Token:", decoded);
 
     const { userId } = decoded;
     if (!userId) {

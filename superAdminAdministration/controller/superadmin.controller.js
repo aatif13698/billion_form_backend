@@ -11,6 +11,7 @@ require('dotenv').config(); // Load environment variables first
 const Roles = require("../../model/roles.model");
 const { getSerialNumber } = require("../../utils/commonFunction");
 const companyModel = require("../../model/company.model");
+const userModel = require("../../model/user.model");
 
 
 const config = {
@@ -153,7 +154,7 @@ exports.createClient = async (req, res, next) => {
 
     // Create new user
     const newUser = new User({
-      serialNumber : serial,
+      serialNumber: serial,
       firstName,
       lastName,
       email: email.toLowerCase(),
@@ -195,20 +196,69 @@ exports.createClient = async (req, res, next) => {
   }
 };
 
-
+// update client
+exports.updateClient = async (req, res, next) => {
+  try {
+    const { clientId, firstName, lastName, email, phone, password } = req.body;
+    // Check if user already exists (using $or for email OR phone)
+    const existingUser = await User.findOne({
+      _id: { $ne: clientId },
+      $or: [{ email: email.toLowerCase() }, { phone }],
+    }).populate("role").select("+password");
+    if (existingUser) {
+      return res.status(httpsStatusCode.Conflict).json({
+        success: false,
+        message: message.lblClientAlreadyExists || "Client already exists",
+        errorCode: "CLIENT_EXISTS",
+      });
+    }
+    const currentUser = await User.findById(clientId)
+    if (password) {
+      const hashedPassword = await bcrypt.hash(password, 10);
+      currentUser.password = hashedPassword;
+    }
+    currentUser.firstName = firstName;
+    currentUser.lastName = lastName;
+    currentUser.email = email;
+    currentUser.phone = phone;
+    await currentUser.save()
+    return res.status(httpsStatusCode.OK).json({
+      success: true,
+      message: message.lblClientUpdatedSuccess,
+      data: {
+        user: currentUser,
+      },
+    });
+  } catch (error) {
+    console.error("Client update error:", error);
+    // Generic server error
+    return res.status(httpsStatusCode.InternalServerError).json({
+      success: false,
+      message: "Internal server error",
+      errorCode: "SERVER_ERROR",
+      error: process.env.NODE_ENV === "development" ? error.message : undefined,
+    });
+  }
+};
 
 
 // get client
 exports.getClients = async (req, res, next) => {
   try {
+    console.log("1111");
+    
     let filters = {
-      deletedAt: null,
+      // deletedAt: null,
       companyId: null,
       roleId: 2,
     };
     const [clients] = await Promise.all([
       User.find(filters)
     ]);
+
+    console.log("2222", clients);
+
+
     return res.status(httpsStatusCode.OK).json({
       success: true,
       message: message.lblClientFoundSuccessfully,
@@ -217,7 +267,7 @@ exports.getClients = async (req, res, next) => {
       },
     });
   } catch (error) {
-    console.error("Client creation error:", error);
+    console.error("Client getting error:", error);
     return res.status(httpsStatusCode.InternalServerError).json({
       success: false,
       message: "Internal server error",
@@ -235,10 +285,10 @@ exports.getClients = async (req, res, next) => {
 exports.getClientsList = async (req, res, next) => {
   try {
     const { keyword = '', page = 1, perPage = 10, } = req.query;
-    const limit = perPage 
+    const limit = perPage
     const skip = (page - 1) * limit;
     let filters = {
-      deletedAt: null,
+      // deletedAt: null,
       roleId: 2,
       ...(keyword && {
         $or: [
@@ -285,28 +335,128 @@ exports.getClientsList = async (req, res, next) => {
 };
 
 
+// get individual client
+exports.getIndividualClient = async (req, res, next) => {
+  try {
+    const { id } = req.params;
+    const [user] = await Promise.all([
+      userModel.findById(id).lean()
+    ]);
+    if (!user) {
+      return res.status(httpsStatusCode.NotFound).json({
+        success: false,
+        message: message.lblClientNotFound,
+      });
+
+    }
+    return res.status(httpsStatusCode.OK).json({
+      success: true,
+      message: message.lblClientFoundSuccessfully,
+      data: {
+        data: user,
+      },
+    });
+  } catch (error) {
+    console.error("company fetching error:", error);
+    return res.status(httpsStatusCode.InternalServerError).json({
+      success: false,
+      message: "Internal server error",
+      errorCode: "SERVER_ERROR",
+      error: process.env.NODE_ENV === "development" ? error.message : undefined,
+    });
+  }
+};
+
+// soft delete client
+exports.softDeleteClient = async (req, res, next) => {
+  try {
+    const { clientId, keyword, page, perPage } = req.body;
+    req.query.keyword = keyword;
+    req.query.page = page;
+    req.query.perPage = perPage;
+    if (!clientId) {
+      return res.status(httpsStatusCode.BadRequest).send({
+        message: message.lblClientIdrequired,
+      });
+    }
+    const client = await userModel.findById(clientId);
+    if (!client) {
+      return res.status(httpsStatusCode.NotFound).send({
+        message: message.lblClientNotFound,
+      });
+    }
+    Object.assign(client, {
+      deletedAt: new Date(),
+    });
+    await client.save();
+    this.getClientsList(req, res)
+  } catch (error) {
+    console.error("Client soft delete error:", error);
+    return res.status(httpsStatusCode.InternalServerError).json({
+      success: false,
+      message: "Internal server error",
+      errorCode: "SERVER_ERROR",
+      error: process.env.NODE_ENV === "development" ? error.message : undefined,
+    });
+  }
+};
+
+exports.restoreClient = async (req, res, next) => {
+  try {
+    const { clientId, keyword, page, perPage } = req.body;
+    req.query.keyword = keyword;
+    req.query.page = page;
+    req.query.perPage = perPage;
+    if (!clientId) {
+      return res.status(httpsStatusCode.BadRequest).send({
+        message: message.lblClientIdrequired,
+      });
+    }
+    const client = await userModel.findById(clientId);
+    if (!client) {
+      return res.status(httpsStatusCode.NotFound).send({
+        message: message.lblClientNotFound,
+      });
+    }
+    Object.assign(client, {
+      deletedAt: null,
+    });
+    await client.save();
+    this.getClientsList(req, res)
+  } catch (error) {
+    console.error("Client restore error:", error);
+    return res.status(httpsStatusCode.InternalServerError).json({
+      success: false,
+      message: "Internal server error",
+      errorCode: "SERVER_ERROR",
+      error: process.env.NODE_ENV === "development" ? error.message : undefined,
+    });
+  }
+};
+
+
 exports.activeInactive = async (req, res, next) => {
   try {
-      const { status, clientId, keyword, page, perPage } = req.body;
-      req.query.keyword = keyword;
-      req.query.page = page;
-      req.query.perPage = perPage;
-      if (!clientId) {
-          return res.status(400).send({
-              message: message.lblClientIdrequired,
-          });
-      }
-      const client = await User.findById(clientId);
-      if (!client) {
-          return res.status(httpsStatusCode.BadRequest).send({
-              message: message.lblClientNotFound,
-          });
-      }
-      Object.assign(client, {
-        isActive: status === "1",
+    const { status, clientId, keyword, page, perPage } = req.body;
+    req.query.keyword = keyword;
+    req.query.page = page;
+    req.query.perPage = perPage;
+    if (!clientId) {
+      return res.status(400).send({
+        message: message.lblClientIdrequired,
       });
-      await client.save();
-      this.getClientsList(req, res)
+    }
+    const client = await User.findById(clientId);
+    if (!client) {
+      return res.status(httpsStatusCode.BadRequest).send({
+        message: message.lblClientNotFound,
+      });
+    }
+    Object.assign(client, {
+      isActive: status === "1",
+    });
+    await client.save();
+    this.getClientsList(req, res)
   } catch (error) {
     console.error("Client active inactive error:", error);
     return res.status(httpsStatusCode.InternalServerError).json({
@@ -322,11 +472,11 @@ exports.activeInactive = async (req, res, next) => {
 exports.getCompanyList = async (req, res, next) => {
   try {
     const { keyword = '', page = 1, perPage = 10, } = req.query;
-    const limit = perPage 
+    const limit = perPage
     const skip = (page - 1) * limit;
     let filters = {
       // deletedAt: null,
-      adminEmail :  { $ne: process.env.SUPER_ADMIN_EMAIL },
+      adminEmail: { $ne: process.env.SUPER_ADMIN_EMAIL },
       ...(keyword && {
         $or: [
           { name: { $regex: keyword.trim(), $options: "i" } },
@@ -388,26 +538,26 @@ exports.getCompany = async (req, res, next) => {
 
 exports.activeInactiveCompany = async (req, res, next) => {
   try {
-      const { status, companyId, keyword, page, perPage } = req.body;
-      req.query.keyword = keyword;
-      req.query.page = page;
-      req.query.perPage = perPage;
-      if (!companyId) {
-          return res.status(httpsStatusCode.BadRequest).send({
-              message: message.lblCompanyIdrequired,
-          });
-      }
-      const company = await companyModel.findById(companyId);
-      if (!company) {
-          return res.status(httpsStatusCode.NotFound).send({
-              message: message.lblCompanyNotFound,
-          });
-      }
-      Object.assign(company, {
-        isActive: status === "1",
+    const { status, companyId, keyword, page, perPage } = req.body;
+    req.query.keyword = keyword;
+    req.query.page = page;
+    req.query.perPage = perPage;
+    if (!companyId) {
+      return res.status(httpsStatusCode.BadRequest).send({
+        message: message.lblCompanyIdrequired,
       });
-      await company.save();
-      this.getCompanyList(req, res)
+    }
+    const company = await companyModel.findById(companyId);
+    if (!company) {
+      return res.status(httpsStatusCode.NotFound).send({
+        message: message.lblCompanyNotFound,
+      });
+    }
+    Object.assign(company, {
+      isActive: status === "1",
+    });
+    await company.save();
+    this.getCompanyList(req, res)
   } catch (error) {
     console.error("Client active inactive error:", error);
     return res.status(httpsStatusCode.InternalServerError).json({
@@ -421,26 +571,26 @@ exports.activeInactiveCompany = async (req, res, next) => {
 
 exports.softDeleteCompany = async (req, res, next) => {
   try {
-      const {  companyId, keyword, page, perPage } = req.body;
-      req.query.keyword = keyword;
-      req.query.page = page;
-      req.query.perPage = perPage;
-      if (!companyId) {
-          return res.status(httpsStatusCode.BadRequest).send({
-              message: message.lblCompanyIdrequired,
-          });
-      }
-      const company = await companyModel.findById(companyId);
-      if (!company) {
-          return res.status(httpsStatusCode.NotFound).send({
-              message: message.lblCompanyNotFound,
-          });
-      }
-      Object.assign(company, {
-        deletedAt: new Date(),
+    const { companyId, keyword, page, perPage } = req.body;
+    req.query.keyword = keyword;
+    req.query.page = page;
+    req.query.perPage = perPage;
+    if (!companyId) {
+      return res.status(httpsStatusCode.BadRequest).send({
+        message: message.lblCompanyIdrequired,
       });
-      await company.save();
-      this.getCompanyList(req, res)
+    }
+    const company = await companyModel.findById(companyId);
+    if (!company) {
+      return res.status(httpsStatusCode.NotFound).send({
+        message: message.lblCompanyNotFound,
+      });
+    }
+    Object.assign(company, {
+      deletedAt: new Date(),
+    });
+    await company.save();
+    this.getCompanyList(req, res)
   } catch (error) {
     console.error("Company soft delete error:", error);
     return res.status(httpsStatusCode.InternalServerError).json({
@@ -454,26 +604,26 @@ exports.softDeleteCompany = async (req, res, next) => {
 
 exports.restoreCompany = async (req, res, next) => {
   try {
-      const {  companyId, keyword, page, perPage } = req.body;
-      req.query.keyword = keyword;
-      req.query.page = page;
-      req.query.perPage = perPage;
-      if (!companyId) {
-          return res.status(httpsStatusCode.BadRequest).send({
-              message: message.lblCompanyIdrequired,
-          });
-      }
-      const company = await companyModel.findById(companyId);
-      if (!company) {
-          return res.status(httpsStatusCode.NotFound).send({
-              message: message.lblCompanyNotFound,
-          });
-      }
-      Object.assign(company, {
-        deletedAt: null,
+    const { companyId, keyword, page, perPage } = req.body;
+    req.query.keyword = keyword;
+    req.query.page = page;
+    req.query.perPage = perPage;
+    if (!companyId) {
+      return res.status(httpsStatusCode.BadRequest).send({
+        message: message.lblCompanyIdrequired,
       });
-      await company.save();
-      this.getCompanyList(req, res)
+    }
+    const company = await companyModel.findById(companyId);
+    if (!company) {
+      return res.status(httpsStatusCode.NotFound).send({
+        message: message.lblCompanyNotFound,
+      });
+    }
+    Object.assign(company, {
+      deletedAt: null,
+    });
+    await company.save();
+    this.getCompanyList(req, res)
   } catch (error) {
     console.error("Company restore error:", error);
     return res.status(httpsStatusCode.InternalServerError).json({

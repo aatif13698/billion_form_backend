@@ -6,8 +6,8 @@ require('dotenv').config(); // Load environment variables first
 
 const router = express.Router();
 
-const superAdminController = require("../controller/superadmin.controller");
-const { validateLoginInput, startCompanyServer, validateClientInput, getSerialNumber } = require("../../utils/commonFunction");
+const superAdminController = require("../controller/auth.controller");
+const { validateLoginInput, startCompanyServer, validateClientInput, getSerialNumber, restrictOtherCompany } = require("../../utils/commonFunction");
 
 const { superAdminAuth } = require("../../middleware/authorization/superAdmin");
 const customFieldModel = require("../../model/customField.model");
@@ -25,10 +25,10 @@ const BASE_PORT = process.env.PORT || 3000;
 
 
 
-// Super Admin Login API
+// common Login API
 router
   .route("/login")
-  .post(validateLoginInput, superAdminController.login);
+  .post(validateLoginInput, restrictOtherCompany, superAdminController.login);
 
 
 

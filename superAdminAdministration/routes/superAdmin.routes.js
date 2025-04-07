@@ -18,39 +18,36 @@ const userModel = require("../../model/user.model");
 const CustomError = require("../../utils/customError");
 const httpsStatusCode = require("../../utils/https-status-code");
 const message = require("../../utils/message");
+const accessModel = require("../../model/access.model");
 
 const IS_DEV = process.env.NODE_ENV === 'development';
 const BASE_DOMAIN = IS_DEV ? 'localhost' : 'billionforms.com';
 const BASE_PORT = process.env.PORT || 3000;
 
 
+// --------- company routes starts here -------------------
+
+
 // handling base company of application
 router.post('/create-company', async (req, res, next) => {
   try {
     const { name, subDomain, adminEmail, adminPassword } = req.body;
-
     const existing = await companyModel.findOne({
       $or: [{ adminEmail: adminEmail.toLowerCase() }, { subDomain: subDomain }],
     });
-
     if (existing) {
       return res.status(400).json({ error: 'Subdomain already taken' });
     }
-
     const user = await userModel.findOne({ email: adminEmail });
 
     if (!user) {
       return res.status(httpsStatusCode.NotFound).json({ error: message.lblClientNotFound });
     }
-
     const saltRounds = 10;
     const hashedPassword = await bcrypt.hash(adminPassword, saltRounds);
-
     // In dev, assign next available port
     const port = IS_DEV ? await getNextAvailablePort() : null;
-
     const serial = await getSerialNumber("company");
-
     const newCompany = new companyModel({
       serialNumber: serial,
       name: name,
@@ -59,17 +56,17 @@ router.post('/create-company', async (req, res, next) => {
       adminEmail,
       adminPassword: hashedPassword
     });
-
     const company = await newCompany.save();
     user.companyId = company._id;
-    await user.save()
-
+    await user.save();
+    await accessModel.create({
+      companyId: company._id,
+      users: [user._id]
+    });
     // Email configuration
     const loginUrl = IS_DEV
       ? `http://localhost:${port}/login`
       : `http://${subDomain}.${BASE_DOMAIN}/login`;
-
-
     return res.status(httpsStatusCode.Created).json({ message: 'Company created successfully', url: loginUrl });
   } catch (error) {
     return res.status(httpsStatusCode.InternalServerError).json({ error: error.message });
@@ -135,9 +132,9 @@ router.post('/update-company', async (req, res, next) => {
   }
 });
 
-router.delete('/softdelete-company',superAdminAuth, superAdminController.softDeleteCompany);
+router.delete('/softdelete-company', superAdminAuth, superAdminController.softDeleteCompany);
 
-router.post('/restore-company',superAdminAuth, superAdminController.restoreCompany);
+router.post('/restore-company', superAdminAuth, superAdminController.restoreCompany);
 
 // get company with pagination and filter
 router.get('/get/company', superAdminAuth, superAdminController.getCompanyList);
@@ -154,6 +151,9 @@ async function getNextAvailablePort() {
   return (lastCompany?.port || BASE_PORT) + 1;
 }
 
+// --------- company routes ends here -------------------
+
+
 
 // Super Admin Login API
 router
@@ -161,17 +161,39 @@ router
   .post(validateLoginInput, superAdminController.login);
 
 
+// --------- clients routes starts here -------------------
+
+
 // create client
 router.route("/create/cleint").post(validateClientInput, superAdminController.createClient);
 
+// update client
+router.post('/update/client', superAdminAuth, superAdminController.updateClient );
+
 // get clients
 router.get('/get/client', superAdminAuth, superAdminController.getClientsList);
+
+// get particular client
+router.get('/get/client/:id', superAdminAuth, superAdminController.getIndividualClient);
+
+// soft delete client
+router.delete('/softdelete/client', superAdminAuth, superAdminController.softDeleteClient);
+
+// restore client
+router.post('/restore/client', superAdminAuth, superAdminController.restoreClient);
 
 // active inactive client
 router.post("/activeInactive/client", superAdminAuth, superAdminController.activeInactive);
 
 // get client
-router.get('/get/client/notsetuped', superAdminAuth, superAdminController.getClients)
+router.get('/get/client/by-status/notsetuped', superAdminAuth, superAdminController.getClients)
+
+
+// --------- company routes ends here -------------------
+
+
+
+
 
 
 // Create a new custom field

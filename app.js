@@ -38,7 +38,7 @@ const BASE_PORT = process.env.PORT || 3000;
 
 // import routes 
 const welcomeRouter = require("./routes/welcome");
-const superAdminAuthRouter = require("./commonAuthentication/routes/superadminAuth.routes");
+const authRouter = require("./commonAuthentication/routes/auth.routes");
 const superAdminAdministrationhRouter = require("./superAdminAdministration/routes/superAdmin.routes");
 const adminRouter = require("./adminAdministration/routes/admin.routes");
 
@@ -49,12 +49,13 @@ const commonFunction = require("./utils/commonFunction");
 
 
 app.use(identifyCompany)
+// app.use(commonFunction.restrictOtherCompany)
 app.use(errorHandler);
 
 
 // Routes for different roles
 app.use("/api", welcomeRouter.router);
-app.use("/api/superadmin/auth", superAdminAuthRouter.router);
+app.use("/api/auth", authRouter.router);
 app.use("/api/superadmin/administration", superAdminAdministrationhRouter.router);
 app.use("/api/admin", adminRouter.router);
 
@@ -71,9 +72,11 @@ const startServer = async () => {
         // Connect to database
         await connectDb(DATABASE_URL);
         console.log('Database connected successfully');
-        await commonFunction.insertSerialNumber()
         await commonFunction.insertRole();
+        await commonFunction.insertSerialNumber()
         await commonFunction.createSuperAdmin();
+        await commonFunction.createAccess()
+
 
         // Start Express server
         server = app.listen(PORT, () => {

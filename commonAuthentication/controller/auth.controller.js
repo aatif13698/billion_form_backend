@@ -36,13 +36,13 @@ exports.login = async (req, res, next) => {
       });
     }
 
-    if (user.roleId !== 1 || user.role.name !== "super admin") {
-      return res.status(403).json({
-        success: false,
-        message: "Access denied: Super admin privileges required",
-        errorCode: "UNAUTHORIZED",
-      });
-    }
+    // if (user.roleId !== 1 || user.role.name !== "super admin") {
+    //   return res.status(403).json({
+    //     success: false,
+    //     message: "Access denied: Super admin privileges required",
+    //     errorCode: "UNAUTHORIZED",
+    //   });
+    // }
 
     if (!user.isActive) {
       return res.status(httpsStatusCode.Forbidden).json({

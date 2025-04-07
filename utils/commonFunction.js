@@ -9,6 +9,9 @@ const data = require("../utils/constants");
 const companyModel = require("../model/company.model");
 const httpsStatusCode = require("./https-status-code");
 const SerialNumber = require("../model/serialNumber.model");
+const accessModel = require("../model/access.model");
+const userModel = require("../model/user.model");
+const { log } = require("console");
 
 
 
@@ -69,7 +72,7 @@ async function createSuperAdmin() {
     });
 
     if (isSuperAdminExists) {
-      console.log("Super admin credentials already exists", isSuperAdminExists);
+      console.log("Super admin credentials already exists");
       return;
     }
 
@@ -98,9 +101,10 @@ async function createSuperAdmin() {
     const adminEmail = process.env.SUPER_ADMIN_EMAIL;
 
     // Check if subdomain already exists
-    const existing = await companyModel.findOne({ subdomain });
+    const existing = await companyModel.findOne({ subDomain: subdomain });
     if (existing) {
-      return res.status(httpsStatusCode.BadRequest).json({ error: 'Subdomain already taken' });
+      console.log({ message: 'Subdomain already taken' });
+      // return res.status(httpsStatusCode.BadRequest).json({ error: 'Subdomain already taken' });
     }
 
     const password2 = crypto.randomBytes(8).toString('hex');
@@ -123,16 +127,62 @@ async function createSuperAdmin() {
       ? `http://localhost:${port}/login`
       : `http://${subdomain}.${BASE_DOMAIN}/login`;
 
-
     // In dev, start a new server instance for this company
-    if (IS_DEV) {
-      startCompanyServer(port);
-    }
+    // if (IS_DEV) {
+    //   startCompanyServer(port);
+    // }
 
     console.log({ message: 'Company created successfully', url: loginUrl });
 
 
     console.log("super admin create successfully");
+  } catch (error) {
+    console.log("error in inserting super admin", error);
+  }
+}
+
+
+// create access of super admin
+async function createAccess() {
+  try {
+    const email = process.env.SUPER_ADMIN_EMAIL;
+    const password = process.env.SUPER_ADMIN_PASSWORD;
+    const phone = process.env.SUPER_ADMIN_PHONE;
+    const user = await User.findOne({
+      $or: [{ phone: phone }, { email: email }],
+    });
+    if (!user) {
+      console.log("User credential not found", user);
+      return;
+    }
+
+    // Handling default company creation for super admin
+    const subdomain = process.env.SUPER_ADMIN_SUB_DOMAIN_NAME;
+
+    // Check if subdomain already exists
+    const company = await companyModel.findOne({ subDomain:subdomain });
+    if (!company) {
+       console.log({ message: 'company not found' });
+       return;
+    }
+
+    const access = await accessModel.findOne({
+      companyId: company._id
+    });
+
+    if (access) {
+      console.log({ message: 'Access already exists'});
+      return;
+    }
+
+    await accessModel.create({
+      companyId: company._id,
+      users: [user._id]
+    });
+
+    console.log("access created successfully!");
+    
+
   } catch (error) {
     console.log("error in inserting super admin", error);
   }
@@ -229,15 +279,9 @@ const validateClientInput = (req, res, next) => {
 const identifyCompany = async (req, res, next) => {
   const host = req.headers.host;
   const origin = req.headers.origin;
-
-
   if (IS_DEV) {
     // const port = parseInt(host.split(':')[1] || BASE_PORT);  
     const port = parseInt(origin?.match(/\d{4}$/)[0] || BASE_PORT);
-
-    console.log("port",port);
-    
-
     const company = await companyModel.findOne({ port });
     req.company = company;
   } else {
@@ -245,7 +289,6 @@ const identifyCompany = async (req, res, next) => {
     const company = await companyModel.findOne({ subdomain });
     req.company = company;
   }
-
   if (!req.company) {
     return res.status(404).json({ error: 'Company not found' });
   }
@@ -256,20 +299,61 @@ const identifyCompany = async (req, res, next) => {
 const restrictOtherCompany = async (req, res, next) => {
   const host = req.headers.host;
   const origin = req.headers.origin;
-
-
   if (IS_DEV) {
     // const port = parseInt(host.split(':')[1] || BASE_PORT);  
     const port = parseInt(origin?.match(/\d{4}$/)[0] || BASE_PORT);
-
-    console.log("port",port);
-    
-
     const company = await companyModel.findOne({ port });
+    const access = await accessModel.findOne({ companyId: company?._id }).populate("users");
+    if (!access) {
+      return res.status(httpsStatusCode.NotFound).send({
+        success: false,
+        message: "Access not found",
+        errorCode: "UNAUTHORIZED",
+      })
+
+    }
+    const { identifier } = req.body;
+    const identifierType = req.identifierType;
+    const query = identifierType === "email"
+      ? { email: identifier.toLowerCase() }
+      : { phone: identifier };
+    const user = await User.findOne(query)
+      .populate("role")
+      .select("_id email phone");
+
+    const findUserAccess = access.users.filter((item) => {
+      return item?._id?.toString() === user._id.toString();
+    });
+    if (findUserAccess.length == 0) {
+      return res.status(403).json({ message: "User does not have access to this company" });
+    }
     req.company = company;
   } else {
     const subdomain = host.split('.')[0];
     const company = await companyModel.findOne({ subdomain });
+    const access = await accessModel.findOne({ companyId: company?._id }).populate("users");
+    if (!access) {
+      return res.status(httpsStatusCode.NotFound).send({
+        success: false,
+        message: "Access not found",
+        errorCode: "UNAUTHORIZED",
+      })
+
+    }
+    const { identifier } = req.body;
+    const identifierType = req.identifierType;
+    const query = identifierType === "email"
+      ? { email: identifier.toLowerCase() }
+      : { phone: identifier };
+    const user = await User.findOne(query)
+      .populate("role")
+      .select("_id email phone");
+    const findUserAccess = access.users.filter((item) => {
+      return item?._id?.toString() === user._id.toString();
+    });
+    if (findUserAccess.length == 0) {
+      return res.status(403).json({ message: "User does not have access to this company" });
+    }
     req.company = company;
   }
 
@@ -329,5 +413,6 @@ module.exports = {
   validateClientInput,
   insertSerialNumber,
   getSerialNumber,
-  restrictOtherCompany
+  restrictOtherCompany,
+  createAccess
 };
