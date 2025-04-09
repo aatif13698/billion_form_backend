@@ -6,6 +6,7 @@ const cors = require('cors');
 const path = require('path');
 const errorHandler = require('./middleware/errorHandler/errorHandler');
 const { identifyCompany } = require("./utils/commonFunction");
+const morgan = require("morgan")
 
 
 // Custom modules
@@ -44,14 +45,14 @@ const adminRouter = require("./adminAdministration/routes/admin.routes");
 
 // impoprt common functions
 const commonFunction = require("./utils/commonFunction");
+const serialNumberModel = require('./model/serialNumber.model');
 
 
 
 
 app.use(identifyCompany)
-// app.use(commonFunction.restrictOtherCompany)
 app.use(errorHandler);
-
+app.use(morgan('dev'));
 
 // Routes for different roles
 app.use("/api", welcomeRouter.router);
@@ -62,6 +63,27 @@ app.use("/api/admin", adminRouter.router);
 
 
 // Error handling middleware (must be last middleware)
+
+
+
+async function generateASerialNumber() {
+    try {
+        const dataObject = {
+            collectionName: "SubscriptionPlan",
+            prefix: "SP",
+        }
+        const isAlreadyExists = await serialNumberModel.findOne({ collectionName: dataObject?.collectionName });
+        if (isAlreadyExists) {
+            console.log("Serial number already exists");
+            return
+        }
+        const created = await serialNumberModel.create(dataObject);
+        console.log("serial number created successfully!");
+    } catch (error) {
+        console.log("error in inserting serial number", error);
+    }
+}
+
 
 
 
@@ -77,6 +99,7 @@ const startServer = async () => {
         await commonFunction.createSuperAdmin();
         await commonFunction.createAccess()
 
+        // await generateASerialNumber();
 
         // Start Express server
         server = app.listen(PORT, () => {

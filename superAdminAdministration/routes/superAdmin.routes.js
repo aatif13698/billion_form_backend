@@ -193,6 +193,28 @@ router.get('/get/client/by-status/notsetuped', superAdminAuth, superAdminControl
 
 
 
+// --------- subscription routes start here -------------------
+
+router.post("/create/subscription",superAdminAuth, superAdminController.createSubscription);
+
+router.post('/update/subscription', superAdminAuth, superAdminController.updateSubscription );
+
+router.get('/get/subscription/list', superAdminAuth, superAdminController.getSubscriptionPlanList);
+
+router.post("/activeInactive/subscription", superAdminAuth, superAdminController.activeInactiveSubscription);
+
+router.get('/get/subscription/:id', superAdminAuth, superAdminController.getIndividualSubscriptionPlan);
+
+router.delete('/softdelete/subscription', superAdminAuth, superAdminController.softDeleteSubscriptionPlan);
+
+router.post('/restore/subscription', superAdminAuth, superAdminController.restoreSubscriptionPlan);
+
+
+
+// --------- subscription routes ends here -------------------
+
+
+
 
 
 

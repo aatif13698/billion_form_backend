@@ -12,6 +12,7 @@ const Roles = require("../../model/roles.model");
 const { getSerialNumber } = require("../../utils/commonFunction");
 const companyModel = require("../../model/company.model");
 const userModel = require("../../model/user.model");
+const subscriptionPlanModel = require("../../model/subscriptionPlan.model");
 
 
 const config = {
@@ -246,7 +247,7 @@ exports.updateClient = async (req, res, next) => {
 exports.getClients = async (req, res, next) => {
   try {
     console.log("1111");
-    
+
     let filters = {
       // deletedAt: null,
       companyId: null,
@@ -634,3 +635,304 @@ exports.restoreCompany = async (req, res, next) => {
     });
   }
 };
+
+
+
+
+
+// ---------- subscription controller starts here --------------
+
+exports.createSubscription = async (req, res, next) => {
+  try {
+
+    const { name, country, currency, subscriptionCharge, validityPeriod, formLimit, organisationLimit, userLimint, } = req.body;
+    if (!name || !country || !currency || !subscriptionCharge || !validityPeriod || !formLimit || !organisationLimit || !userLimint) {
+      return res.status(httpsStatusCode.BadRequest).send({
+        success: false,
+        message: message.lblRequiredFieldMissing,
+        errorCode: "FIELD_MISSIING",
+      });
+    }
+    const existingPlan = await subscriptionPlanModel.findOne({
+      $or: [{ name: name }],
+    })
+    if (existingPlan) {
+      return res.status(httpsStatusCode.Conflict).json({
+        success: false,
+        message: message.lblSubscriptionPlanAlreadyExists || "Subscription plan already exists",
+        errorCode: "SUBSCRIPTION_EXISTS",
+      });
+    }
+
+    const serial = await getSerialNumber("SubscriptionPlan");
+    const newSubscriptionPlan = await subscriptionPlanModel.create({
+      serialNumber: serial,
+      activatedOn: new Date(),
+      name, country, currency, subscriptionCharge, validityPeriod, formLimit, organisationLimit, userLimint,
+    })
+
+    // Return success response
+    return res.status(httpsStatusCode.Created).json({
+      success: true,
+      message: message.lblSubscriptionPlanCreatedSuccess,
+      data: {
+        subscription: newSubscriptionPlan,
+      },
+    });
+  } catch (error) {
+    console.error("Subscription plan creation error:", error);
+    // Generic server error
+    return res.status(httpsStatusCode.InternalServerError).json({
+      success: false,
+      message: "Internal server error",
+      errorCode: "SERVER_ERROR",
+      error: process.env.NODE_ENV === "development" ? error.message : undefined,
+    });
+  }
+};
+
+// update subscription
+exports.updateSubscription = async (req, res, next) => {
+  try {
+
+    const { subscriptionPlanId, name, country, currency, subscriptionCharge, validityPeriod, formLimit, organisationLimit, userLimint, } = req.body;
+    if (!name || !country || !currency || !subscriptionCharge || !validityPeriod || !formLimit || !organisationLimit || !userLimint) {
+      return res.status(httpsStatusCode.BadRequest).send({
+        success: false,
+        message: message.lblRequiredFieldMissing,
+        errorCode: "FIELD_MISSIING",
+      });
+    }
+    const currentSubscriptionPlan = await subscriptionPlanModel.findById(subscriptionPlanId);
+    if (!currentSubscriptionPlan) {
+      return res.status(httpsStatusCode.NotFound).json({
+        success: false,
+        message: message.lblSubscriptionPlanNotFound,
+        errorCode: "SUBSCRIPTION_NOT_FOUND",
+      });
+    }
+    const existingPlan = await subscriptionPlanModel.findOne({
+      name: name,
+      _id: { $ne: subscriptionPlanId },
+    });
+    if (existingPlan) {
+      return res.status(httpsStatusCode.Conflict).json({
+        success: false,
+        message: message.lblSubscriptionPlanAlreadyExists || "Subscription plan already exists",
+        errorCode: "SUBSCRIPTION_EXISTS",
+      });
+    }
+    Object.assign(currentSubscriptionPlan, {
+      name, country, currency, subscriptionCharge, validityPeriod, formLimit, organisationLimit, userLimint,
+    });
+    await currentSubscriptionPlan.save()
+    // Return success response
+    return res.status(httpsStatusCode.Created).json({
+      success: true,
+      message: message.lblSubscriptionPlanUpdatedSuccess,
+      data: {
+        subscription: currentSubscriptionPlan,
+      },
+    });
+  } catch (error) {
+    console.error("Subscription plan creation error:", error);
+    // Generic server error
+    return res.status(httpsStatusCode.InternalServerError).json({
+      success: false,
+      message: "Internal server error",
+      errorCode: "SERVER_ERROR",
+      error: process.env.NODE_ENV === "development" ? error.message : undefined,
+    });
+  }
+};
+
+
+// list subscription plan
+exports.getSubscriptionPlanList = async (req, res, next) => {
+  try {
+    const { keyword = '', page = 1, perPage = 10, } = req.query;
+    const limit = perPage
+    const skip = (page - 1) * limit;
+    const keywordRegex = { $regex: keyword.trim(), $options: "i" };
+
+    let filters = { 
+      ...(keyword && {
+        $or: [
+          { serialNumber: keywordRegex },
+          { name: keywordRegex },
+          { country: keywordRegex },
+          { currency: keywordRegex },
+          { validityPeriod: keywordRegex },
+          ...(isNaN(Number(keyword)) ? [] : [
+            { subscriptionCharge: Number(keyword) },
+            { formLimit: Number(keyword) },
+            { organisationLimit: Number(keyword) },
+            { userLimint: Number(keyword) }, // assuming your schema still uses `userLimint` (typo?)
+          ])
+        ]
+      }),
+    };
+
+    const [subscriptionPlans, total] = await Promise.all([
+      subscriptionPlanModel.find(filters).skip(skip).limit(limit).sort({ _id: -1 }),
+      subscriptionPlanModel.countDocuments(filters),
+    ]);
+
+    return res.status(httpsStatusCode.OK).json({
+      success: true,
+      message: message.lblSubscriptionPlanFoundSuccessfully,
+      data: {
+        data: subscriptionPlans,
+        total: total
+      },
+    });
+  } catch (error) {
+    console.error("Subscription fetching error:", error);
+    return res.status(httpsStatusCode.InternalServerError).json({
+      success: false,
+      message: "Internal server error",
+      errorCode: "SERVER_ERROR",
+      error: process.env.NODE_ENV === "development" ? error.message : undefined,
+    });
+  }
+};
+
+// active inactive subscription plan
+exports.activeInactiveSubscription = async (req, res, next) => {
+  try {
+    const { status, subscriptionPlanId, keyword, page, perPage } = req.body;
+    req.query.keyword = keyword;
+    req.query.page = page;
+    req.query.perPage = perPage;
+    if (!subscriptionPlanId) {
+      return res.status(400).send({
+        message: message.lblSubscriptionPlanIdrequired,
+      });
+    }
+    const subscriptionPlan = await subscriptionPlanModel.findById(subscriptionPlanId);
+    if (!subscriptionPlan) {
+      return res.status(httpsStatusCode.BadRequest).send({
+        message: message.lblSubscriptionPlanNotFound,
+      });
+    }
+    Object.assign(subscriptionPlan, {
+      isActive: status === "1",
+    });
+    await subscriptionPlan.save();
+    this.getSubscriptionPlanList(req, res)
+  } catch (error) {
+    console.error("active inactive error:", error);
+    return res.status(httpsStatusCode.InternalServerError).json({
+      success: false,
+      message: "Internal server error",
+      errorCode: "SERVER_ERROR",
+      error: process.env.NODE_ENV === "development" ? error.message : undefined,
+    });
+  }
+};
+
+// get individual subscription plan
+exports.getIndividualSubscriptionPlan = async (req, res, next) => {
+  try {
+    const { id } = req.params;
+    const [subscription] = await Promise.all([
+      subscriptionPlanModel.findById(id).lean()
+    ]);
+    if (!subscription) {
+      return res.status(httpsStatusCode.NotFound).json({
+        success: false,
+        message: message.lblSubscriptionPlanNotFound,
+      });
+
+    }
+    return res.status(httpsStatusCode.OK).json({
+      success: true,
+      message: message.lblSubscriptionPlanFoundSuccessfully,
+      data: {
+        data: subscription,
+      },
+    });
+  } catch (error) {
+    console.error("subscription plan fetching error:", error);
+    return res.status(httpsStatusCode.InternalServerError).json({
+      success: false,
+      message: "Internal server error",
+      errorCode: "SERVER_ERROR",
+      error: process.env.NODE_ENV === "development" ? error.message : undefined,
+    });
+  }
+};
+
+// soft delete subscription plan
+exports.softDeleteSubscriptionPlan = async (req, res, next) => {
+  try {
+    const { subscriptionPlanId, keyword, page, perPage } = req.body;
+    req.query.keyword = keyword;
+    req.query.page = page;
+    req.query.perPage = perPage;
+    if (!subscriptionPlanId) {
+      return res.status(httpsStatusCode.BadRequest).send({
+        message: message.lblSubscriptionPlanIdrequired,
+      });
+    }
+    const subscription = await subscriptionPlanModel.findById(subscriptionPlanId);
+    if (!subscription) {
+      return res.status(httpsStatusCode.NotFound).send({
+        message: message.lblSubscriptionPlanNotFound,
+      });
+    }
+    Object.assign(subscription, {
+      deletedAt: new Date(),
+    });
+    await subscription.save();
+    this.getSubscriptionPlanList(req, res)
+  } catch (error) {
+    console.error("subscription plan soft delete error:", error);
+    return res.status(httpsStatusCode.InternalServerError).json({
+      success: false,
+      message: "Internal server error",
+      errorCode: "SERVER_ERROR",
+      error: process.env.NODE_ENV === "development" ? error.message : undefined,
+    });
+  }
+};
+
+
+// restore subscription plan
+exports.restoreSubscriptionPlan = async (req, res, next) => {
+  try {
+    const { subscriptionPlanId, keyword, page, perPage } = req.body;
+    req.query.keyword = keyword;
+    req.query.page = page;
+    req.query.perPage = perPage;
+    if (!subscriptionPlanId) {
+      return res.status(httpsStatusCode.BadRequest).send({
+        message: message.lblSubscriptionPlanIdrequired,
+      });
+    }
+    const subscription = await subscriptionPlanModel.findById(subscriptionPlanId);
+    if (!subscription) {
+      return res.status(httpsStatusCode.NotFound).send({
+        message: message.lblSubscriptionPlanNotFound,
+      });
+    }
+    Object.assign(subscription, {
+      deletedAt: null,
+    });
+    await subscription.save();
+    this.getSubscriptionPlanList(req, res)
+  } catch (error) {
+    console.error("subscription plan restore error:", error);
+    return res.status(httpsStatusCode.InternalServerError).json({
+      success: false,
+      message: "Internal server error",
+      errorCode: "SERVER_ERROR",
+      error: process.env.NODE_ENV === "development" ? error.message : undefined,
+    });
+  }
+};
+
+
+
+
+// ---------- subscription controller ends here --------------

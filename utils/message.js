@@ -95,6 +95,15 @@ module.exports = {
     lblCompanyIdrequired: "Company Id id required!",
   
   
+    // subscription plan
+    lblSubscriptionPlanNotFound: "Subscription Plan not found!",
+    lblSubscriptionPlanAlreadyExists: "Subscription Plan already exists with this name",
+    lblSubscriptionPlanCreatedSuccess: "Subscription Plan created successfully!",
+    lblSubscriptionPlanUpdatedSuccess: "Subscription Plan updated successfully!",
+    lblSubscriptionPlanFoundSuccessfully: "Subscription Plan found successfully!",
+    lblSubscriptionPlanSoftDeletedSuccess: "Subscription Plan soft deleted successfully!",
+    lblSubscriptionPlanRestoredSuccess: "Subscription Plan restored succesfully!",
+    lblSubscriptionPlanIdrequired: "Subscription Plan Id id required!",
   
   
   
