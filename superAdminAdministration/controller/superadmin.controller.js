@@ -13,6 +13,15 @@ const { getSerialNumber } = require("../../utils/commonFunction");
 const companyModel = require("../../model/company.model");
 const userModel = require("../../model/user.model");
 const subscriptionPlanModel = require("../../model/subscriptionPlan.model");
+const topupModel = require("../../model/topup.model");
+
+const commonFunction = require("../../utils/commonFunction");
+
+
+const IS_DEV = process.env.NODE_ENV === 'development';
+const BASE_DOMAIN = IS_DEV ? 'localhost' : 'billionforms.com';
+const BASE_PORT = process.env.PORT || 3000;
+
 
 
 const config = {
@@ -125,6 +134,9 @@ exports.login = async (req, res, next) => {
     });
   }
 };
+
+
+// ------------- client controller starts here --------------
 
 
 exports.createClient = async (req, res, next) => {
@@ -242,7 +254,6 @@ exports.updateClient = async (req, res, next) => {
   }
 };
 
-
 // get client
 exports.getClients = async (req, res, next) => {
   try {
@@ -278,16 +289,12 @@ exports.getClients = async (req, res, next) => {
   }
 };
 
-
-
-
-// get clients list with pagination
-
 exports.getClientsList = async (req, res, next) => {
   try {
     const { keyword = '', page = 1, perPage = 10, } = req.query;
     const limit = perPage
     const skip = (page - 1) * limit;
+
     let filters = {
       // deletedAt: null,
       roleId: 2,
@@ -312,10 +319,15 @@ exports.getClientsList = async (req, res, next) => {
     };
 
     const [clients, total] = await Promise.all([
-      User.find(filters).skip(skip).limit(limit).sort({ _id: -1 }).populate('companyId'),
+      User.find(filters).skip(skip).limit(limit).sort({ _id: -1 })
+      .populate({
+        path: 'companyId',
+        select: 'name',
+      })
+      .select('serialNumber firstName lastName email companyId _id')
+      .lean(),
       User.countDocuments(filters),
     ]);
-
     return res.status(httpsStatusCode.OK).json({
       success: true,
       message: message.lblClientFoundSuccessfully,
@@ -335,8 +347,6 @@ exports.getClientsList = async (req, res, next) => {
   }
 };
 
-
-// get individual client
 exports.getIndividualClient = async (req, res, next) => {
   try {
     const { id } = req.params;
@@ -368,7 +378,6 @@ exports.getIndividualClient = async (req, res, next) => {
   }
 };
 
-// soft delete client
 exports.softDeleteClient = async (req, res, next) => {
   try {
     const { clientId, keyword, page, perPage } = req.body;
@@ -435,8 +444,7 @@ exports.restoreClient = async (req, res, next) => {
   }
 };
 
-
-exports.activeInactive = async (req, res, next) => {
+exports.activeInactiveClient = async (req, res, next) => {
   try {
     const { status, clientId, keyword, page, perPage } = req.body;
     req.query.keyword = keyword;
@@ -469,7 +477,106 @@ exports.activeInactive = async (req, res, next) => {
   }
 };
 
-// get company with pagination
+
+// ------------- client controller ends here --------------
+
+
+// ------------- company controller starts here --------------
+
+// create company
+exports.createCompany = async (req, res, next) => {
+  try {
+    const { name, subDomain, adminEmail, adminPassword } = req.body;
+    const existing = await companyModel.findOne({
+      $or: [{ adminEmail: adminEmail.toLowerCase() }, { subDomain: subDomain }],
+    });
+    if (existing) {
+      return res.status(400).json({ error: 'Subdomain already taken' });
+    }
+    const user = await userModel.findOne({ email: adminEmail });
+
+    if (!user) {
+      return res.status(httpsStatusCode.NotFound).json({ error: message.lblClientNotFound });
+    }
+    const saltRounds = 10;
+    const hashedPassword = await bcrypt.hash(adminPassword, saltRounds);
+    // In dev, assign next available port
+    const port = IS_DEV ? await commonFunction.getNextAvailablePort() : null;
+    const serial = await getSerialNumber("company");
+    const newCompany = new companyModel({
+      serialNumber: serial,
+      name: name,
+      subDomain: subDomain.toLowerCase(),
+      port,
+      adminEmail,
+      adminPassword: hashedPassword
+    });
+    const company = await newCompany.save();
+    user.companyId = company._id;
+    await user.save();
+    await accessModel.create({
+      companyId: company._id,
+      users: [user._id]
+    });
+    // Email configuration
+    const loginUrl = IS_DEV
+      ? `http://localhost:${port}/login`
+      : `http://${subDomain}.${BASE_DOMAIN}/login`;
+    return res.status(httpsStatusCode.Created).json({ message: 'Company created successfully', url: loginUrl });
+  } catch (error) {
+    return res.status(httpsStatusCode.InternalServerError).json({ error: error.message });
+  }
+};
+
+// update company
+exports.updateCompany = async (req, res, next) => {
+  try {
+      const { companyId, name, subDomain, adminPassword } = req.body;
+      // Validate required fields
+      if (!companyId || !name || !subDomain) {
+        return res.status(httpsStatusCode.BadRequest).json({ error: 'Missing required fields' });
+      }
+      // Find the company
+      const company = await companyModel.findById(companyId);
+      if (!company) {
+        return res.status(httpsStatusCode.NotFound).json({ error: 'Company not found' });
+      }
+      // Check for subdomain conflict (excluding current company)
+      const existingSubdomain = await companyModel.findOne({
+        _id: { $ne: companyId },
+        subDomain: subDomain.toLowerCase(),
+      });
+      if (existingSubdomain) {
+        return res.status(httpsStatusCode.BadRequest).json({ error: 'Subdomain already taken' });
+      }
+      // Update allowed fields
+      if (adminPassword) {
+        const hashedPassword = await bcrypt.hash(adminPassword, 10);
+        company.adminPassword = hashedPassword;
+      }
+      company.name = name;
+      company.subDomain = subDomain.toLowerCase();
+      await company.save();
+      // Update login URL for redirection
+      const loginUrl = IS_DEV
+        ? `http://localhost:${company.port}/login`
+        : `http://${company.subDomain}.${BASE_DOMAIN}/login`;
+  
+      return res.status(httpsStatusCode.OK).json({
+        message: 'Company updated successfully',
+        url: loginUrl,
+      });
+  
+    } catch (error) {
+      console.error("Error updating company:", error);
+      return res.status(httpsStatusCode.InternalServerError).json({
+        error: 'Internal server error',
+        debug: process.env.NODE_ENV === 'development' ? error.message : undefined
+      });
+    }
+};
+
+// get company list
 exports.getCompanyList = async (req, res, next) => {
   try {
     const { keyword = '', page = 1, perPage = 10, } = req.query;
@@ -510,7 +617,6 @@ exports.getCompanyList = async (req, res, next) => {
   }
 };
 
-
 // get company
 exports.getCompany = async (req, res, next) => {
   try {
@@ -536,7 +642,7 @@ exports.getCompany = async (req, res, next) => {
   }
 };
 
-
+// active inactive company
 exports.activeInactiveCompany = async (req, res, next) => {
   try {
     const { status, companyId, keyword, page, perPage } = req.body;
@@ -570,6 +676,7 @@ exports.activeInactiveCompany = async (req, res, next) => {
   }
 };
 
+// soft delete company
 exports.softDeleteCompany = async (req, res, next) => {
   try {
     const { companyId, keyword, page, perPage } = req.body;
@@ -603,6 +710,7 @@ exports.softDeleteCompany = async (req, res, next) => {
   }
 };
 
+// restore company
 exports.restoreCompany = async (req, res, next) => {
   try {
     const { companyId, keyword, page, perPage } = req.body;
@@ -637,11 +745,16 @@ exports.restoreCompany = async (req, res, next) => {
 };
 
 
+// ------------- company controller ends here --------------
+
+
+
 
 
 
 // ---------- subscription controller starts here --------------
 
+// create subscription
 exports.createSubscription = async (req, res, next) => {
   try {
 
@@ -745,7 +858,6 @@ exports.updateSubscription = async (req, res, next) => {
     });
   }
 };
-
 
 // list subscription plan
 exports.getSubscriptionPlanList = async (req, res, next) => {
@@ -897,7 +1009,6 @@ exports.softDeleteSubscriptionPlan = async (req, res, next) => {
   }
 };
 
-
 // restore subscription plan
 exports.restoreSubscriptionPlan = async (req, res, next) => {
   try {
@@ -933,6 +1044,292 @@ exports.restoreSubscriptionPlan = async (req, res, next) => {
 };
 
 
-
-
 // ---------- subscription controller ends here --------------
+
+
+
+
+// ---------- topup controller starts here --------------
+
+exports.createTopup = async (req, res, next) => {
+  try {
+    const { name, subscriptionCharge, validityPeriod, formLimit, organisationLimit, userLimint, } = req.body;
+    if (!name  || !subscriptionCharge || !validityPeriod || !formLimit || !organisationLimit || !userLimint) {
+      return res.status(httpsStatusCode.BadRequest).send({
+        success: false,
+        message: message.lblRequiredFieldMissing,
+        errorCode: "FIELD_MISSIING",
+      });
+    }
+    const existing = await topupModel.findOne({
+      $or: [{ name: name }],
+    })
+    if (existing) {
+      return res.status(httpsStatusCode.Conflict).json({
+        success: false,
+        message: message.lblTopupAlreadyExists || "Topup plan already exists",
+        errorCode: "TOPUP_EXISTS",
+      });
+    }
+    const serial = await getSerialNumber("topup");
+    const newTopup = await topupModel.create({
+      serialNumber: serial,
+      activatedOn: new Date(),
+      name, subscriptionCharge, validityPeriod, formLimit, organisationLimit, userLimint,
+    })
+
+    // Return success response
+    return res.status(httpsStatusCode.Created).json({
+      success: true,
+      message: message.lblTopupCreatedSuccess,
+      data: {
+        subscription: newTopup,
+      },
+    });
+  } catch (error) {
+    console.error("Topup creation error:", error);
+    // Generic server error
+    return res.status(httpsStatusCode.InternalServerError).json({
+      success: false,
+      message: "Internal server error",
+      errorCode: "SERVER_ERROR",
+      error: process.env.NODE_ENV === "development" ? error.message : undefined,
+    });
+  }
+};
+
+// update topup
+exports.updateTopup = async (req, res, next) => {
+  try {
+    const { topupId, name, subscriptionCharge, validityPeriod, formLimit, organisationLimit, userLimint, } = req.body;
+    if (!name || !subscriptionCharge || !validityPeriod || !formLimit || !organisationLimit || !userLimint) {
+      return res.status(httpsStatusCode.BadRequest).send({
+        success: false,
+        message: message.lblRequiredFieldMissing,
+        errorCode: "FIELD_MISSIING",
+      });
+    }
+    const currentTopup = await topupModel.findById(topupId);
+    if (!currentTopup) {
+      return res.status(httpsStatusCode.NotFound).json({
+        success: false,
+        message: message.lblTopupNotFound,
+        errorCode: "TOPUP_NOT_FOUND",
+      });
+    }
+    const existin = await topupModel.findOne({
+      name: name,
+      _id: { $ne: topupId },
+    });
+    if (existin) {
+      return res.status(httpsStatusCode.Conflict).json({
+        success: false,
+        message: message.lblTopupAlreadyExists,
+        errorCode: "TOPUP_EXISTS",
+      });
+    }
+    Object.assign(currentTopup, {
+      name, subscriptionCharge, validityPeriod, formLimit, organisationLimit, userLimint,
+    });
+    await currentTopup.save()
+    // Return success response
+    return res.status(httpsStatusCode.Created).json({
+      success: true,
+      message: message.lblTopupUpdatedSuccess,
+      data: {
+        subscription: currentTopup,
+      },
+    });
+  } catch (error) {
+    console.error("Topup creation error:", error);
+    // Generic server error
+    return res.status(httpsStatusCode.InternalServerError).json({
+      success: false,
+      message: "Internal server error",
+      errorCode: "SERVER_ERROR",
+      error: process.env.NODE_ENV === "development" ? error.message : undefined,
+    });
+  }
+};
+
+// list topup
+exports.getTopupList = async (req, res, next) => {
+  try {
+    const { keyword = '', page = 1, perPage = 10, } = req.query;
+    const limit = perPage
+    const skip = (page - 1) * limit;
+    const keywordRegex = { $regex: keyword.trim(), $options: "i" };
+    let filters = { 
+      ...(keyword && {
+        $or: [
+          { serialNumber: keywordRegex },
+          { name: keywordRegex },
+          { validityPeriod: keywordRegex },
+          ...(isNaN(Number(keyword)) ? [] : [
+            { subscriptionCharge: Number(keyword) },
+            { formLimit: Number(keyword) },
+            { organisationLimit: Number(keyword) },
+            { userLimint: Number(keyword) }, // assuming your schema still uses `userLimint` (typo?)
+          ])
+        ]
+      }),
+    };
+    const [topups, total] = await Promise.all([
+      topupModel.find(filters).skip(skip).limit(limit).sort({ _id: -1 }),
+      topupModel.countDocuments(filters),
+    ]);
+    return res.status(httpsStatusCode.OK).json({
+      success: true,
+      message: message.lblTopupFoundSuccessfully,
+      data: {
+        data: topups,
+        total: total
+      },
+    });
+  } catch (error) {
+    console.error("Topup fetching error:", error);
+    return res.status(httpsStatusCode.InternalServerError).json({
+      success: false,
+      message: "Internal server error",
+      errorCode: "SERVER_ERROR",
+      error: process.env.NODE_ENV === "development" ? error.message : undefined,
+    });
+  }
+};
+
+// active inactive topup
+exports.activeInactiveTopup = async (req, res, next) => {
+  try {
+    const { status, topupId, keyword, page, perPage } = req.body;
+    req.query.keyword = keyword;
+    req.query.page = page;
+    req.query.perPage = perPage;
+    if (!topupId) {
+      return res.status(400).send({
+        message: message.lblTopupIdrequired,
+      });
+    }
+    const topup = await topupModel.findById(topupId);
+    if (!topup) {
+      return res.status(httpsStatusCode.BadRequest).send({
+        message: message.lblTopupNotFound,
+      });
+    }
+    Object.assign(topup, {
+      isActive: status === "1",
+    });
+    await topup.save();
+    this.getTopupList(req, res)
+  } catch (error) {
+    console.error("active inactive error:", error);
+    return res.status(httpsStatusCode.InternalServerError).json({
+      success: false,
+      message: "Internal server error",
+      errorCode: "SERVER_ERROR",
+      error: process.env.NODE_ENV === "development" ? error.message : undefined,
+    });
+  }
+};
+
+// get individual topup
+exports.getIndividualTopup = async (req, res, next) => {
+  try {
+    const { id } = req.params;
+    const [topup] = await Promise.all([
+      topupModel.findById(id).lean()
+    ]);
+    if (!topup) {
+      return res.status(httpsStatusCode.NotFound).json({
+        success: false,
+        message: message.lblTopupNotFound,
+      });
+
+    }
+    return res.status(httpsStatusCode.OK).json({
+      success: true,
+      message: message.lblTopupFoundSuccessfully,
+      data: {
+        data: topup,
+      },
+    });
+  } catch (error) {
+    console.error("topup fetching error:", error);
+    return res.status(httpsStatusCode.InternalServerError).json({
+      success: false,
+      message: "Internal server error",
+      errorCode: "SERVER_ERROR",
+      error: process.env.NODE_ENV === "development" ? error.message : undefined,
+    });
+  }
+};
+
+// soft delete topup
+exports.softDeleteTopup = async (req, res, next) => {
+  try {
+    const { topupId, keyword, page, perPage } = req.body;
+    req.query.keyword = keyword;
+    req.query.page = page;
+    req.query.perPage = perPage;
+    if (!topupId) {
+      return res.status(httpsStatusCode.BadRequest).send({
+        message: message.lblTopupIdrequired,
+      });
+    }
+    const topup = await topupModel.findById(topupId);
+    if (!topup) {
+      return res.status(httpsStatusCode.NotFound).send({
+        message: message.lblTopupNotFound,
+      });
+    }
+    Object.assign(topup, {
+      deletedAt: new Date(),
+    });
+    await topup.save();
+    this.getTopupList(req, res)
+  } catch (error) {
+    console.error("topup soft delete error:", error);
+    return res.status(httpsStatusCode.InternalServerError).json({
+      success: false,
+      message: "Internal server error",
+      errorCode: "SERVER_ERROR",
+      error: process.env.NODE_ENV === "development" ? error.message : undefined,
+    });
+  }
+};
+
+// restore topup
+exports.restoretopup = async (req, res, next) => {
+  try {
+    const { topupId, keyword, page, perPage } = req.body;
+    req.query.keyword = keyword;
+    req.query.page = page;
+    req.query.perPage = perPage;
+    if (!topupId) {
+      return res.status(httpsStatusCode.BadRequest).send({
+        message: message.lblTopupIdrequired,
+      });
+    }
+    const topup = await topupModel.findById(topupId);
+    if (!topup) {
+      return res.status(httpsStatusCode.NotFound).send({
+        message: message.lblSubscriptionPlanNotFound,
+      });
+    }
+    Object.assign(topup, {
+      deletedAt: null,
+    });
+    await topup.save();
+    this.getTopupList(req, res)
+  } catch (error) {
+    console.error("topup restore error:", error);
+    return res.status(httpsStatusCode.InternalServerError).json({
+      success: false,
+      message: "Internal server error",
+      errorCode: "SERVER_ERROR",
+      error: process.env.NODE_ENV === "development" ? error.message : undefined,
+    });
+  }
+};
+
+
+// ---------- topup controller ends here --------------

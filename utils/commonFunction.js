@@ -12,6 +12,7 @@ const SerialNumber = require("../model/serialNumber.model");
 const accessModel = require("../model/access.model");
 const userModel = require("../model/user.model");
 const { log } = require("console");
+const serialNumberModel = require("../model/serialNumber.model");
 
 
 
@@ -378,10 +379,16 @@ function startCompanyServer(port) {
 // Helper function to find next available port
 async function getNextAvailablePort() {
   const lastCompany = await companyModel.findOne().sort({ port: -1 });
-
   const prevPort = parseInt(lastCompany?.port || BASE_PORT)
   return prevPort + 1;
 }
+
+
+// async function getNextAvailablePort() {
+//   const lastCompany = await companyModel.findOne().sort({ port: -1 });
+//   return (lastCompany?.port || BASE_PORT) + 1;
+// }
+
 
 
 // get serial number
@@ -402,6 +409,31 @@ const getSerialNumber = async (collection) => {
 }
 
 
+// generate serial number
+
+ const generateASerialNumber = async function () {
+    try {
+        const dataObject = {
+            collectionName: "topup",
+            prefix: "TU",
+        }
+        const isAlreadyExists = await serialNumberModel.findOne({ collectionName: dataObject?.collectionName });
+        if (isAlreadyExists) {
+            console.log("Serial number already exists");
+            return
+        }
+        const created = await serialNumberModel.create(dataObject);
+        console.log("serial number created successfully!");
+    } catch (error) {
+        console.log("error in inserting serial number", error);
+    }
+}
+
+
+
+
+
+
 // Export the functions
 module.exports = {
   insertRole,
@@ -413,6 +445,7 @@ module.exports = {
   validateClientInput,
   insertSerialNumber,
   getSerialNumber,
+  generateASerialNumber,
   restrictOtherCompany,
   createAccess
 };

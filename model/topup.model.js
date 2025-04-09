@@ -12,15 +12,10 @@ const mongoose = require("mongoose");
 const { Schema } = mongoose;
 const ObjectId = Schema.ObjectId;
 
-const subscriptionPlanSchema = new Schema(
+const topupSchema = new Schema(
     {
         serialNumber: { type: String, default : null },
         name: { type: String, required: true },
-        country: {
-            type: String,
-            trim: true,
-        },
-        currency: { type: String, trim: true, required: true },
         subscriptionCharge: { type: Number, required: true },
         validityPeriod: {
             type: String,
@@ -47,5 +42,5 @@ const subscriptionPlanSchema = new Schema(
 );
 
 
-const subscriptionPlanModel = mongoose.model("subscriptionPlan", subscriptionPlanSchema);
-module.exports = subscriptionPlanModel;
+const topupModel = mongoose.model("topup", topupSchema);
+module.exports = topupModel;

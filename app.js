@@ -19,6 +19,20 @@ const app = express();
 const PORT = process.env.PORT || 8080;
 const DATABASE_URL = process.env.DATABASE_URL;
 
+// Environment config
+const IS_DEV = process.env.NODE_ENV === 'development';
+const BASE_DOMAIN = IS_DEV ? 'localhost' : 'millionsform.com';
+const BASE_PORT = process.env.PORT || 3000;
+
+// impoprt common functions
+const commonFunction = require("./utils/commonFunction");
+
+// import routes 
+const welcomeRouter = require("./routes/welcome");
+const authRouter = require("./commonAuthentication/routes/auth.routes");
+const superAdminAdministrationhRouter = require("./superAdminAdministration/routes/superAdmin.routes");
+const adminRouter = require("./adminAdministration/routes/admin.routes");
+
 // Middleware setup
 app.use(cors({
     origin: process.env.NODE_ENV === 'development' ? '*' : 'https://billionforms.com',
@@ -29,27 +43,6 @@ app.use(cors({
 app.use(express.json()); // Parse JSON bodies
 app.use(express.urlencoded({ extended: true })); // Parse URL-encoded bodies
 app.use(express.static(path.join(__dirname, 'public'))); // Serve static files
-
-
-// Environment config
-const IS_DEV = process.env.NODE_ENV === 'development';
-const BASE_DOMAIN = IS_DEV ? 'localhost' : 'millionsform.com';
-const BASE_PORT = process.env.PORT || 3000;
-
-
-// import routes 
-const welcomeRouter = require("./routes/welcome");
-const authRouter = require("./commonAuthentication/routes/auth.routes");
-const superAdminAdministrationhRouter = require("./superAdminAdministration/routes/superAdmin.routes");
-const adminRouter = require("./adminAdministration/routes/admin.routes");
-
-// impoprt common functions
-const commonFunction = require("./utils/commonFunction");
-const serialNumberModel = require('./model/serialNumber.model');
-
-
-
-
 app.use(identifyCompany)
 app.use(errorHandler);
 app.use(morgan('dev'));
@@ -60,33 +53,6 @@ app.use("/api/auth", authRouter.router);
 app.use("/api/superadmin/administration", superAdminAdministrationhRouter.router);
 app.use("/api/admin", adminRouter.router);
 
-
-
-// Error handling middleware (must be last middleware)
-
-
-
-async function generateASerialNumber() {
-    try {
-        const dataObject = {
-            collectionName: "SubscriptionPlan",
-            prefix: "SP",
-        }
-        const isAlreadyExists = await serialNumberModel.findOne({ collectionName: dataObject?.collectionName });
-        if (isAlreadyExists) {
-            console.log("Serial number already exists");
-            return
-        }
-        const created = await serialNumberModel.create(dataObject);
-        console.log("serial number created successfully!");
-    } catch (error) {
-        console.log("error in inserting serial number", error);
-    }
-}
-
-
-
-
 // Start server function
 const startServer = async () => {
     let server; // Declare server variable in outer scope
@@ -95,11 +61,11 @@ const startServer = async () => {
         await connectDb(DATABASE_URL);
         console.log('Database connected successfully');
         await commonFunction.insertRole();
-        await commonFunction.insertSerialNumber()
+        // await commonFunction.insertSerialNumber()
         await commonFunction.createSuperAdmin();
         await commonFunction.createAccess()
 
-        // await generateASerialNumber();
+        // await commonFunction.generateASerialNumber();
 
         // Start Express server
         server = app.listen(PORT, () => {

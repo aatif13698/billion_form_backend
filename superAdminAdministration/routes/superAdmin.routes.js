@@ -27,8 +27,6 @@ const BASE_PORT = process.env.PORT || 3000;
 
 // --------- company routes starts here -------------------
 
-
-// handling base company of application
 router.post('/create-company', async (req, res, next) => {
   try {
     const { name, subDomain, adminEmail, adminPassword } = req.body;
@@ -74,75 +72,16 @@ router.post('/create-company', async (req, res, next) => {
 });
 
 // update company
-router.post('/update-company', async (req, res, next) => {
-  try {
-    const { companyId, name, subDomain, adminPassword } = req.body;
-
-    console.log("req.body", req.body);
-
-
-    // Validate required fields
-    if (!companyId || !name || !subDomain) {
-      return res.status(httpsStatusCode.BadRequest).json({ error: 'Missing required fields' });
-    }
-
-    // Find the company
-    const company = await companyModel.findById(companyId);
-    if (!company) {
-      return res.status(httpsStatusCode.NotFound).json({ error: 'Company not found' });
-    }
-
-    // Check for subdomain conflict (excluding current company)
-    const existingSubdomain = await companyModel.findOne({
-      _id: { $ne: companyId },
-      subDomain: subDomain.toLowerCase(),
-    });
-
-    if (existingSubdomain) {
-      return res.status(httpsStatusCode.BadRequest).json({ error: 'Subdomain already taken' });
-    }
-
-    // Update allowed fields
-    if (adminPassword) {
-      const hashedPassword = await bcrypt.hash(adminPassword, 10);
-      company.adminPassword = hashedPassword;
-    }
-
-    company.name = name;
-    company.subDomain = subDomain.toLowerCase();
-
-    await company.save();
-
-    // Update login URL for redirection
-    const loginUrl = IS_DEV
-      ? `http://localhost:${company.port}/login`
-      : `http://${company.subDomain}.${BASE_DOMAIN}/login`;
-
-    return res.status(httpsStatusCode.OK).json({
-      message: 'Company updated successfully',
-      url: loginUrl,
-    });
-
-  } catch (error) {
-    console.error("Error updating company:", error);
-    return res.status(httpsStatusCode.INTERNAL_SERVER_ERROR).json({
-      error: 'Internal server error',
-      debug: process.env.NODE_ENV === 'development' ? error.message : undefined
-    });
-  }
-});
+router.post('/update-company', superAdminController.updateCompany);
 
 router.delete('/softdelete-company', superAdminAuth, superAdminController.softDeleteCompany);
 
 router.post('/restore-company', superAdminAuth, superAdminController.restoreCompany);
 
-// get company with pagination and filter
 router.get('/get/company', superAdminAuth, superAdminController.getCompanyList);
 
-// get company
 router.get('/get/company/:id', superAdminAuth, superAdminController.getCompany);
 
-// active inactive company
 router.post("/activeInactive/company", superAdminAuth, superAdminController.activeInactiveCompany);
 
 // Helper function to find next available port
@@ -163,31 +102,21 @@ router
 
 // --------- clients routes starts here -------------------
 
-
-// create client
 router.route("/create/cleint").post(validateClientInput, superAdminController.createClient);
 
-// update client
 router.post('/update/client', superAdminAuth, superAdminController.updateClient );
 
-// get clients
 router.get('/get/client', superAdminAuth, superAdminController.getClientsList);
 
-// get particular client
 router.get('/get/client/:id', superAdminAuth, superAdminController.getIndividualClient);
 
-// soft delete client
 router.delete('/softdelete/client', superAdminAuth, superAdminController.softDeleteClient);
 
-// restore client
 router.post('/restore/client', superAdminAuth, superAdminController.restoreClient);
 
-// active inactive client
-router.post("/activeInactive/client", superAdminAuth, superAdminController.activeInactive);
+router.post("/activeInactive/client", superAdminAuth, superAdminController.activeInactiveClient);
 
-// get client
 router.get('/get/client/by-status/notsetuped', superAdminAuth, superAdminController.getClients)
-
 
 // --------- company routes ends here -------------------
 
@@ -214,6 +143,23 @@ router.post('/restore/subscription', superAdminAuth, superAdminController.restor
 // --------- subscription routes ends here -------------------
 
 
+// --------- topup routes starts here ---------
+
+router.post("/create/topup",superAdminAuth, superAdminController.createTopup);
+
+router.post('/update/topup', superAdminAuth, superAdminController.updateTopup );
+
+router.get('/get/topup/list', superAdminAuth, superAdminController.getTopupList);
+
+router.post("/activeInactive/topup", superAdminAuth, superAdminController.activeInactiveTopup);
+
+router.get('/get/topup/:id', superAdminAuth, superAdminController.getIndividualTopup);
+
+router.delete('/softdelete/topup', superAdminAuth, superAdminController.softDeleteTopup);
+
+router.post('/restore/topup', superAdminAuth, superAdminController.restoretopup);
+
+// --------- topup routes ends here ---------
 
 
 
