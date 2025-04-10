@@ -289,6 +289,37 @@ exports.getClients = async (req, res, next) => {
   }
 };
 
+
+// get all clients
+exports.getAllClients = async (req, res, next) => {
+  try {
+    let filters = {
+      deletedAt: null,
+      isActive : true,
+      roleId: 2,
+    };
+    const [clients] = await Promise.all([
+      User.find(filters).select('firstName lastName serialNumber email phone _id')
+    ]);
+
+    return res.status(httpsStatusCode.OK).json({
+      success: true,
+      message: message.lblClientFoundSuccessfully,
+      data: {
+        user: clients,
+      },
+    });
+  } catch (error) {
+    console.error("Client getting error:", error);
+    return res.status(httpsStatusCode.InternalServerError).json({
+      success: false,
+      message: "Internal server error",
+      errorCode: "SERVER_ERROR",
+      error: process.env.NODE_ENV === "development" ? error.message : undefined,
+    });
+  }
+};
+
 exports.getClientsList = async (req, res, next) => {
   try {
     const { keyword = '', page = 1, perPage = 10, } = req.query;
@@ -324,7 +355,7 @@ exports.getClientsList = async (req, res, next) => {
         path: 'companyId',
         select: 'name',
       })
-      .select('serialNumber firstName lastName email companyId _id')
+      .select('serialNumber firstName lastName email phone companyId _id')
       .lean(),
       User.countDocuments(filters),
     ]);
@@ -896,6 +927,37 @@ exports.getSubscriptionPlanList = async (req, res, next) => {
       data: {
         data: subscriptionPlans,
         total: total
+      },
+    });
+  } catch (error) {
+    console.error("Subscription fetching error:", error);
+    return res.status(httpsStatusCode.InternalServerError).json({
+      success: false,
+      message: "Internal server error",
+      errorCode: "SERVER_ERROR",
+      error: process.env.NODE_ENV === "development" ? error.message : undefined,
+    });
+  }
+};
+
+// get all subscription
+exports.getAllSubscriptionPlan = async (req, res, next) => {
+  try {
+
+    let filters = { 
+      isActive : true,
+      deletedAt : null,
+    };
+
+    const [subscriptionPlans] = await Promise.all([
+      subscriptionPlanModel.find(filters).sort({ _id: 1 }).select('serialNumber name subscriptionCharge _id'),
+    ]);
+
+    return res.status(httpsStatusCode.OK).json({
+      success: true,
+      message: message.lblSubscriptionPlanFoundSuccessfully,
+      data: {
+        data: subscriptionPlans,
       },
     });
   } catch (error) {

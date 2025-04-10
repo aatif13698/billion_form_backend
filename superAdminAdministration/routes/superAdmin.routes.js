@@ -116,7 +116,11 @@ router.post('/restore/client', superAdminAuth, superAdminController.restoreClien
 
 router.post("/activeInactive/client", superAdminAuth, superAdminController.activeInactiveClient);
 
-router.get('/get/client/by-status/notsetuped', superAdminAuth, superAdminController.getClients)
+router.get('/get/client/by-status/notsetuped', superAdminAuth, superAdminController.getClients);
+
+router.get('/get/all/client', superAdminAuth, superAdminController.getAllClients);
+
+
 
 // --------- company routes ends here -------------------
 
@@ -129,6 +133,8 @@ router.post("/create/subscription",superAdminAuth, superAdminController.createSu
 router.post('/update/subscription', superAdminAuth, superAdminController.updateSubscription );
 
 router.get('/get/subscription/list', superAdminAuth, superAdminController.getSubscriptionPlanList);
+
+router.get('/get/all/subscription', superAdminAuth, superAdminController.getAllSubscriptionPlan);
 
 router.post("/activeInactive/subscription", superAdminAuth, superAdminController.activeInactiveSubscription);
 

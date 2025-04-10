@@ -21,7 +21,7 @@ const topupSchema = new Schema(
             type: String,
             enum: ['monthly', 'quarterly', 'halfyearly', 'yearly', 'infinite'],
             required: true,
-        },
+        }, 
         formLimit: { type: Number, required: true },
         organisationLimit: { type: Number, required: true },
         userLimint: { type: Number, required: true },
