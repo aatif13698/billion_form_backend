@@ -40,6 +40,9 @@ app.use(cors({
     allowedHeaders: ['Content-Type', 'Authorization'],
     credentials: true, // If you need to support cookies/auth
 }));
+
+app.use("/api", welcomeRouter.router);
+
 app.use(express.json()); // Parse JSON bodies
 app.use(express.urlencoded({ extended: true })); // Parse URL-encoded bodies
 app.use(express.static(path.join(__dirname, 'public'))); // Serve static files
@@ -48,7 +51,6 @@ app.use(errorHandler);
 app.use(morgan('dev'));
 
 // Routes for different roles
-app.use("/api", welcomeRouter.router);
 app.use("/api/auth", authRouter.router);
 app.use("/api/superadmin/administration", superAdminAdministrationhRouter.router);
 app.use("/api/admin", adminRouter.router);
