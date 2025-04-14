@@ -287,7 +287,7 @@ const identifyCompany = async (req, res, next) => {
     req.company = company;
   } else {
 
-    const domainParts = origin.split('.');
+    const domainParts = origin?.split('.');
 
     // Check if it's at least a 3-part domain like sub.domain.tld
     if (domainParts.length >= 3) {
@@ -349,7 +349,7 @@ const restrictOtherCompany = async (req, res, next) => {
     }
     req.company = company;
   } else {
-    const domainParts = origin.split('.');
+    const domainParts = origin?.split('.');
 
     if (domainParts.length >= 3) {
       const subdomain = domainParts[0];
