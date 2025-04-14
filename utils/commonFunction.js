@@ -293,7 +293,7 @@ const identifyCompany = async (req, res, next) => {
     if (domainParts.length >= 3) {
       const subdomain = domainParts[0];
       console.log("subdomain:", subdomain);
-      const aaa = extractCode(subdomain);
+      const aaa = extractPath(subdomain);
       console.log("aaa:", aaa);
 
       const company = await companyModel.findOne({ subDomain: aaa });
@@ -354,7 +354,7 @@ const restrictOtherCompany = async (req, res, next) => {
     if (domainParts.length >= 3) {
       const subdomain = domainParts[0];
       console.log("subdomain:", subdomain);
-      const aaa = extractCode(subdomain);
+      const aaa = extractPath(subdomain);
       console.log("aaa:", aaa);
 
       const company = await companyModel.findOne({ subDomain: aaa });
