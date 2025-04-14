@@ -157,6 +157,9 @@ router.post('/update/topup', superAdminAuth, superAdminController.updateTopup );
 
 router.get('/get/topup/list', superAdminAuth, superAdminController.getTopupList);
 
+router.get('/get/all/topup', superAdminAuth, superAdminController.getAllTopupPlan);
+
+
 router.post("/activeInactive/topup", superAdminAuth, superAdminController.activeInactiveTopup);
 
 router.get('/get/topup/:id', superAdminAuth, superAdminController.getIndividualTopup);
@@ -166,6 +169,24 @@ router.delete('/softdelete/topup', superAdminAuth, superAdminController.softDele
 router.post('/restore/topup', superAdminAuth, superAdminController.restoretopup);
 
 // --------- topup routes ends here ---------
+
+
+// --------- subscribed user routes starts here ---------
+
+router.post("/create/subscribed",superAdminAuth, superAdminController.createSubscsribed);
+
+router.post("/create/assigntopup",superAdminAuth, superAdminController.createAssignTopup);
+
+router.get('/get/subscribed/list', superAdminAuth, superAdminController.getListSubscsribed);
+
+router.post("/activeInactive/subscribed", superAdminAuth, superAdminController.activeInactiveTopup);
+
+router.get('/get/subscribed/:id', superAdminAuth, superAdminController.getParticularSubscsribedUser);
+
+
+
+// --------- subscribed user routes ends here ---------
+
 
 
 

@@ -161,10 +161,10 @@ async function createAccess() {
     const subdomain = process.env.SUPER_ADMIN_SUB_DOMAIN_NAME;
 
     // Check if subdomain already exists
-    const company = await companyModel.findOne({ subDomain:subdomain });
+    const company = await companyModel.findOne({ subDomain: subdomain });
     if (!company) {
-       console.log({ message: 'company not found' });
-       return;
+      console.log({ message: 'company not found' });
+      return;
     }
 
     const access = await accessModel.findOne({
@@ -172,7 +172,7 @@ async function createAccess() {
     });
 
     if (access) {
-      console.log({ message: 'Access already exists'});
+      console.log({ message: 'Access already exists' });
       return;
     }
 
@@ -182,7 +182,7 @@ async function createAccess() {
     });
 
     console.log("access created successfully!");
-    
+
 
   } catch (error) {
     console.log("error in inserting super admin", error);
@@ -411,22 +411,41 @@ const getSerialNumber = async (collection) => {
 
 // generate serial number
 
- const generateASerialNumber = async function () {
-    try {
-        const dataObject = {
-            collectionName: "topup",
-            prefix: "TU",
-        }
-        const isAlreadyExists = await serialNumberModel.findOne({ collectionName: dataObject?.collectionName });
-        if (isAlreadyExists) {
-            console.log("Serial number already exists");
-            return
-        }
-        const created = await serialNumberModel.create(dataObject);
-        console.log("serial number created successfully!");
-    } catch (error) {
-        console.log("error in inserting serial number", error);
+const generateASerialNumber = async function () {
+  try {
+    const dataObject = {
+      collectionName: "subscribedUser",
+      prefix: "SU",
     }
+    const isAlreadyExists = await serialNumberModel.findOne({ collectionName: dataObject?.collectionName });
+    if (isAlreadyExists) {
+      console.log("Serial number already exists");
+      return
+    }
+    const created = await serialNumberModel.create(dataObject);
+    console.log("serial number created successfully!");
+  } catch (error) {
+    console.log("error in inserting serial number", error);
+  }
+}
+
+
+const calculateEndDate = function (validityPeriod) {
+  const startDate = new Date();
+  switch (validityPeriod) {
+    case 'monthly':
+      return new Date(startDate.setMonth(startDate.getMonth() + 1));
+    case 'quarterly':
+      return new Date(startDate.setMonth(startDate.getMonth() + 3));
+    case 'halfyearly':
+      return new Date(startDate.setMonth(startDate.getMonth() + 6));
+    case 'yearly':
+      return new Date(startDate.setFullYear(startDate.getFullYear() + 1));
+    case 'infinite':
+      return null; // No end date for infinite plans
+    default:
+      return null;
+  }
 }
 
 
@@ -447,5 +466,6 @@ module.exports = {
   getSerialNumber,
   generateASerialNumber,
   restrictOtherCompany,
-  createAccess
+  createAccess,
+  calculateEndDate
 };

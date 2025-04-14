@@ -18,11 +18,13 @@ const subscribedUserSchema = new Schema(
         userId: { type: ObjectId, ref: "User", index: true },
         subscription: [
             {
+
                 subscriptionId: { type: ObjectId, ref: 'subscriptionPlan', required: true },
                 startDate: { type: Date, default: Date.now },
                 endDate: { type: Date }, // For subscription expiration
                 status: { type: String, enum: ['active', 'inactive'], default: 'active' },
                 createdBy: { type: ObjectId, ref: "User", index: true },
+                isPlanExpired : {type: Boolean, default: false}
             }
         ],
         topup: [
@@ -32,6 +34,7 @@ const subscribedUserSchema = new Schema(
                 endDate: { type: Date }, // For subscription expiration
                 status: { type: String, enum: ['active', 'inactive'], default: 'active' },
                 createdBy: { type: ObjectId, ref: "User", index: true },
+                isPlanExpired : {type: Boolean, default: false}
             }
         ],
 
@@ -41,7 +44,8 @@ const subscribedUserSchema = new Schema(
         totalOrgLimit: { type: Number, required: true },
         totalUserLimint: { type: Number, required: true },
 
-        deletedAt: { type: Date, default: null, index: true }, // Index for soft-delete functionality
+        
+
     },
     { timestamps: true }
 );

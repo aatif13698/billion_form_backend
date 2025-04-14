@@ -16,6 +16,7 @@ const subscriptionPlanModel = require("../../model/subscriptionPlan.model");
 const topupModel = require("../../model/topup.model");
 
 const commonFunction = require("../../utils/commonFunction");
+const subscribedUserModel = require("../../model/subscribedUser.model");
 
 
 const IS_DEV = process.env.NODE_ENV === 'development';
@@ -295,7 +296,7 @@ exports.getAllClients = async (req, res, next) => {
   try {
     let filters = {
       deletedAt: null,
-      isActive : true,
+      isActive: true,
       roleId: 2,
     };
     const [clients] = await Promise.all([
@@ -351,12 +352,12 @@ exports.getClientsList = async (req, res, next) => {
 
     const [clients, total] = await Promise.all([
       User.find(filters).skip(skip).limit(limit).sort({ _id: -1 })
-      .populate({
-        path: 'companyId',
-        select: 'name',
-      })
-      .select('serialNumber firstName lastName email phone companyId _id')
-      .lean(),
+        .populate({
+          path: 'companyId',
+          select: 'name',
+        })
+        .select('serialNumber firstName lastName email phone companyId _id')
+        .lean(),
       User.countDocuments(filters),
     ]);
     return res.status(httpsStatusCode.OK).json({
@@ -562,49 +563,49 @@ exports.createCompany = async (req, res, next) => {
 // update company
 exports.updateCompany = async (req, res, next) => {
   try {
-      const { companyId, name, subDomain, adminPassword } = req.body;
-      // Validate required fields
-      if (!companyId || !name || !subDomain) {
-        return res.status(httpsStatusCode.BadRequest).json({ error: 'Missing required fields' });
-      }
-      // Find the company
-      const company = await companyModel.findById(companyId);
-      if (!company) {
-        return res.status(httpsStatusCode.NotFound).json({ error: 'Company not found' });
-      }
-      // Check for subdomain conflict (excluding current company)
-      const existingSubdomain = await companyModel.findOne({
-        _id: { $ne: companyId },
-        subDomain: subDomain.toLowerCase(),
-      });
-      if (existingSubdomain) {
-        return res.status(httpsStatusCode.BadRequest).json({ error: 'Subdomain already taken' });
-      }
-      // Update allowed fields
-      if (adminPassword) {
-        const hashedPassword = await bcrypt.hash(adminPassword, 10);
-        company.adminPassword = hashedPassword;
-      }
-      company.name = name;
-      company.subDomain = subDomain.toLowerCase();
-      await company.save();
-      // Update login URL for redirection
-      const loginUrl = IS_DEV
-        ? `http://localhost:${company.port}/login`
-        : `http://${company.subDomain}.${BASE_DOMAIN}/login`;
-  
-      return res.status(httpsStatusCode.OK).json({
-        message: 'Company updated successfully',
-        url: loginUrl,
-      });
-  
-    } catch (error) {
-      console.error("Error updating company:", error);
-      return res.status(httpsStatusCode.InternalServerError).json({
-        error: 'Internal server error',
-        debug: process.env.NODE_ENV === 'development' ? error.message : undefined
-      });
+    const { companyId, name, subDomain, adminPassword } = req.body;
+    // Validate required fields
+    if (!companyId || !name || !subDomain) {
+      return res.status(httpsStatusCode.BadRequest).json({ error: 'Missing required fields' });
     }
+    // Find the company
+    const company = await companyModel.findById(companyId);
+    if (!company) {
+      return res.status(httpsStatusCode.NotFound).json({ error: 'Company not found' });
+    }
+    // Check for subdomain conflict (excluding current company)
+    const existingSubdomain = await companyModel.findOne({
+      _id: { $ne: companyId },
+      subDomain: subDomain.toLowerCase(),
+    });
+    if (existingSubdomain) {
+      return res.status(httpsStatusCode.BadRequest).json({ error: 'Subdomain already taken' });
+    }
+    // Update allowed fields
+    if (adminPassword) {
+      const hashedPassword = await bcrypt.hash(adminPassword, 10);
+      company.adminPassword = hashedPassword;
+    }
+    company.name = name;
+    company.subDomain = subDomain.toLowerCase();
+    await company.save();
+    // Update login URL for redirection
+    const loginUrl = IS_DEV
+      ? `http://localhost:${company.port}/login`
+      : `http://${company.subDomain}.${BASE_DOMAIN}/login`;
+
+    return res.status(httpsStatusCode.OK).json({
+      message: 'Company updated successfully',
+      url: loginUrl,
+    });
+
+  } catch (error) {
+    console.error("Error updating company:", error);
+    return res.status(httpsStatusCode.InternalServerError).json({
+      error: 'Internal server error',
+      debug: process.env.NODE_ENV === 'development' ? error.message : undefined
+    });
+  }
 };
 
 // get company list
@@ -898,7 +899,7 @@ exports.getSubscriptionPlanList = async (req, res, next) => {
     const skip = (page - 1) * limit;
     const keywordRegex = { $regex: keyword.trim(), $options: "i" };
 
-    let filters = { 
+    let filters = {
       ...(keyword && {
         $or: [
           { serialNumber: keywordRegex },
@@ -944,9 +945,9 @@ exports.getSubscriptionPlanList = async (req, res, next) => {
 exports.getAllSubscriptionPlan = async (req, res, next) => {
   try {
 
-    let filters = { 
-      isActive : true,
-      deletedAt : null,
+    let filters = {
+      isActive: true,
+      deletedAt: null,
     };
 
     const [subscriptionPlans] = await Promise.all([
@@ -1116,7 +1117,7 @@ exports.restoreSubscriptionPlan = async (req, res, next) => {
 exports.createTopup = async (req, res, next) => {
   try {
     const { name, subscriptionCharge, validityPeriod, formLimit, organisationLimit, userLimint, } = req.body;
-    if (!name  || !subscriptionCharge || !validityPeriod || !formLimit || !organisationLimit || !userLimint) {
+    if (!name || !subscriptionCharge || !validityPeriod || !formLimit || !organisationLimit || !userLimint) {
       return res.status(httpsStatusCode.BadRequest).send({
         success: false,
         message: message.lblRequiredFieldMissing,
@@ -1221,7 +1222,7 @@ exports.getTopupList = async (req, res, next) => {
     const limit = perPage
     const skip = (page - 1) * limit;
     const keywordRegex = { $regex: keyword.trim(), $options: "i" };
-    let filters = { 
+    let filters = {
       ...(keyword && {
         $or: [
           { serialNumber: keywordRegex },
@@ -1246,6 +1247,34 @@ exports.getTopupList = async (req, res, next) => {
       data: {
         data: topups,
         total: total
+      },
+    });
+  } catch (error) {
+    console.error("Topup fetching error:", error);
+    return res.status(httpsStatusCode.InternalServerError).json({
+      success: false,
+      message: "Internal server error",
+      errorCode: "SERVER_ERROR",
+      error: process.env.NODE_ENV === "development" ? error.message : undefined,
+    });
+  }
+};
+
+// get all topup
+exports.getAllTopupPlan = async (req, res, next) => {
+  try {
+    let filters = {
+      isActive: true,
+      deletedAt: null,
+    };
+    const [topupPlans] = await Promise.all([
+      topupModel.find(filters).sort({ _id: 1 }).select('serialNumber name subscriptionCharge _id'),
+    ]);
+    return res.status(httpsStatusCode.OK).json({
+      success: true,
+      message: message.lblTopupFoundSuccessfully,
+      data: {
+        data: topupPlans,
       },
     });
   } catch (error) {
@@ -1395,3 +1424,280 @@ exports.restoretopup = async (req, res, next) => {
 
 
 // ---------- topup controller ends here --------------
+
+
+
+
+// ---------- subscribed controller starts here ----------
+
+// create subscribed
+exports.createSubscsribed = async (req, res, next) => {
+  try {
+    const { userId, subscriptionId } = req.body;
+    if (!userId || !subscriptionId) {
+      return res.status(httpsStatusCode.BadRequest).send({
+        success: false,
+        message: message.lblRequiredFieldMissing,
+        errorCode: "FIELD_MISSIING",
+      });
+    }
+    const existing = await subscriptionPlanModel.findById(subscriptionId)
+    if (!existing) {
+      return res.status(httpsStatusCode.NotFound).json({
+        success: false,
+        message: message.lblSubscriptionPlanNotFound,
+        errorCode: "SUBSCRIPTION_NOT_FOUND",
+      });
+    }
+    if (!existing.isActive) {
+      return res.status(httpsStatusCode.Conflict).json({
+        success: false,
+        message: "Subscription plan has been deactivated.",
+        errorCode: "SUBSCRIPTION_DEACTIVATED",
+      });
+    }
+
+    // const existingPlan = await subscribedUserModel.findOne({ userId: userId });
+    let subscribedUser = await subscribedUserModel.findOne({ userId });
+    if (subscribedUser) {
+      subscribedUser.subscription.push({
+        subscriptionId,
+        startDate: new Date(),
+        endDate: commonFunction.calculateEndDate(existing.validityPeriod),
+        createdBy: req.user._id,
+        status: 'active',
+        isPlanExpired: false,
+      });
+
+      // Update limits based on the new subscription plan (override with latest plan's limits)
+      subscribedUser.totalFormLimit += existing.formLimit;
+      subscribedUser.totalOrgLimit += existing.organisationLimit;
+      subscribedUser.totalUserLimint += existing.userLimint;
+
+      await subscribedUser.save();
+      return res.status(httpsStatusCode.OK).json({
+        success: true,
+        message: 'Subscription added successfully',
+        data: { subscription: subscribedUser },
+      });
+    }
+
+    const serial = await getSerialNumber('subscribedUser');
+    const newSubscription = await subscribedUserModel.create({
+      serialNumber: serial,
+      userId,
+      subscription: [
+        {
+          subscriptionId,
+          startDate: new Date(),
+          endDate: commonFunction.calculateEndDate(existing.validityPeriod),
+          createdBy: req.user._id,
+          status: 'active',
+          isPlanExpired: false,
+        },
+      ],
+      totalFormLimit: existing.formLimit,
+      totalOrgLimit: existing.organisationLimit,
+      totalUserLimint: existing.userLimint,
+    });
+
+    // Add user to subscription plan's subscribers
+    existing.subscribers.push(userId);
+    await existing.save();
+
+    return res.status(httpsStatusCode.OK).json({
+      success: true,
+      message: 'Subscribed successfully',
+      data: { subscription: newSubscription },
+    });
+  } catch (error) {
+    console.error("Topup creation error:", error);
+    // Generic server error
+    return res.status(httpsStatusCode.InternalServerError).json({
+      success: false,
+      message: "Internal server error",
+      errorCode: "SERVER_ERROR",
+      error: process.env.NODE_ENV === "development" ? error.message : undefined,
+    });
+  }
+};
+
+// assign topup
+exports.createAssignTopup = async (req, res, next) => {
+  try {
+    const { userId, topupId } = req.body;
+    if (!userId || !topupId) {
+      return res.status(httpsStatusCode.BadRequest).send({
+        success: false,
+        message: message.lblRequiredFieldMissing,
+        errorCode: "FIELD_MISSIING",
+      });
+    }
+    const existing = await topupModel.findById(topupId)
+    if (!existing) {
+      return res.status(httpsStatusCode.NotFound).json({
+        success: false,
+        message: message.lblTopupNotFound,
+        errorCode: "TOPUP_NOT_FOUND",
+      });
+    }
+    if (!existing.isActive) {
+      return res.status(httpsStatusCode.Conflict).json({
+        success: false,
+        message: "Topup plan has been deactivated.",
+        errorCode: "TOPUP_DEACTIVATED",
+      });
+    }
+
+    let subscribedUser = await subscribedUserModel.findOne({ userId });
+    if (subscribedUser) {
+      subscribedUser.topup.push({
+        topupId,
+        startDate: new Date(),
+        endDate: commonFunction.calculateEndDate(existing.validityPeriod),
+        createdBy: req.user._id,
+        status: 'active',
+        isPlanExpired: false,
+      });
+
+      subscribedUser.totalFormLimit += existing.formLimit;
+      subscribedUser.totalOrgLimit += existing.organisationLimit;
+      subscribedUser.totalUserLimint += existing.userLimint;
+
+      await subscribedUser.save();
+      return res.status(httpsStatusCode.OK).json({
+        success: true,
+        message: 'Topup plan added successfully',
+        data: { topup: subscribedUser },
+      });
+    }
+
+    const serial = await getSerialNumber('subscribedUser');
+    const newSubscription = await subscribedUserModel.create({
+      serialNumber: serial,
+      userId,
+      topup: [
+        {
+          topupId,
+          startDate: new Date(),
+          endDate: commonFunction.calculateEndDate(existing.validityPeriod),
+          createdBy: req.user._id,
+          status: 'active',
+          isPlanExpired: false,
+        },
+      ],
+      totalFormLimit: existing.formLimit,
+      totalOrgLimit: existing.organisationLimit,
+      totalUserLimint: existing.userLimint,
+    });
+
+    // Add user to subscription plan's subscribers
+    existing.subscribers.push(userId);
+    await existing.save();
+    return res.status(httpsStatusCode.OK).json({
+      success: true,
+      message: 'Topup plan Subscribed successfully',
+      data: { topup: newSubscription },
+    });
+  } catch (error) {
+    console.error("Topup creation error:", error);
+    // Generic server error
+    return res.status(httpsStatusCode.InternalServerError).json({
+      success: false,
+      message: "Internal server error",
+      errorCode: "SERVER_ERROR",
+      error: process.env.NODE_ENV === "development" ? error.message : undefined,
+    });
+  }
+};
+
+// get list subscribed user
+exports.getListSubscsribed = async (req, res, next) => {
+  try {
+    const { keyword = '', page = 1, perPage = 10, } = req.query;
+    const limit = perPage
+    const skip = (page - 1) * limit;
+    const keywordRegex = { $regex: keyword.trim(), $options: "i" };
+    let filters = {
+      ...(keyword && {
+        $or: [
+          { serialNumber: keywordRegex },
+        ]
+      }),
+    };
+    const [subscribedUsers, total] = await Promise.all([
+      subscribedUserModel.find(filters).skip(skip).limit(limit).sort({ _id: -1 }).populate({
+        path: "userId",
+        select: 'firstName lastName email phone _id'
+      }),
+      subscribedUserModel.countDocuments(filters),
+    ]);
+    return res.status(httpsStatusCode.OK).json({
+      success: true,
+      message: message.lblSubscribedUserFoundSuccessfully,
+      data: {
+        data: subscribedUsers,
+        total: total
+      },
+    });
+  } catch (error) {
+    console.error("Topup fetching error:", error);
+    return res.status(httpsStatusCode.InternalServerError).json({
+      success: false,
+      message: "Internal server error",
+      errorCode: "SERVER_ERROR",
+      error: process.env.NODE_ENV === "development" ? error.message : undefined,
+    });
+  }
+};
+
+
+exports.getParticularSubscsribedUser = async (req, res, next) => {
+  try {
+    const { id } = req.params;
+    if (!id) {
+      return res.status(httpsStatusCode.BadRequest).send({
+        success: false,
+        message: message.lblRequiredFieldMissing,
+        errorCode: "FIELD_MISSIING",
+      });
+    }
+    let subscribedUser = await subscribedUserModel.findById(id).populate({
+      path : 'subscription.subscriptionId',
+      select : '-subscribers'
+    }).populate({
+      path : "userId",
+      select : "firstName lastName email phone _id"
+    })
+    .populate({
+      path : 'topup.topupId',
+      select : '-subscribers'
+    })
+    if (!subscribedUser) {
+      return res.status(httpsStatusCode.NotFound).json({
+        success: false,
+        message: "Subscribed user not found",
+        errorCode: "SUBSCRIBED_USER_NOT_FOUND",
+      });
+    }
+    return res.status(httpsStatusCode.OK).json({
+      success: true,
+      message: message.lblSubscribedUserFoundSuccessfully,
+      data: subscribedUser,
+    });
+  } catch (error) {
+    console.error("fetching error:", error);
+    // Generic server error
+    return res.status(httpsStatusCode.InternalServerError).json({
+      success: false,
+      message: "Internal server error",
+      errorCode: "SERVER_ERROR",
+      error: process.env.NODE_ENV === "development" ? error.message : undefined,
+    });
+  }
+};
+
+
+
+
+// ---------- subscribed controller ends here ----------

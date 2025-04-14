@@ -116,6 +116,17 @@ module.exports = {
   lblTopupIdrequired: "Topup Id id required!",
 
 
+  // subscribed user
+  lblSubscribedUserNotFound: "SubscribedUser not found!",
+  lblSubscribedUserAlreadyExists: "SubscribedUser already exists with this name",
+  lblSubscribedUserCreatedSuccess: "SubscribedUser created successfully!",
+  lblSubscribedUserUpdatedSuccess: "SubscribedUser updated successfully!",
+  lblSubscribedUserFoundSuccessfully: "SubscribedUser found successfully!",
+  lblSubscribedUserSoftDeletedSuccess: "SubscribedUser soft deleted successfully!",
+  lblSubscribedUserRestoredSuccess: "SubscribedUser restored succesfully!",
+  lblSubscribedUserIdrequired: "SubscribedUser Id id required!",
+
+
 
 
 

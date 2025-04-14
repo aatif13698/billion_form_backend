@@ -41,14 +41,16 @@ app.use(cors({
     credentials: true, // If you need to support cookies/auth
 }));
 
-app.use("/api", welcomeRouter.router);
 
 app.use(express.json()); // Parse JSON bodies
 app.use(express.urlencoded({ extended: true })); // Parse URL-encoded bodies
 app.use(express.static(path.join(__dirname, 'public'))); // Serve static files
-app.use(identifyCompany)
+// app.use(identifyCompany)
 app.use(errorHandler);
 app.use(morgan('dev'));
+
+app.use("/api", welcomeRouter.router);
+
 
 // Routes for different roles
 app.use("/api/auth", authRouter.router);

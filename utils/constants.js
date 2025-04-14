@@ -13,6 +13,9 @@ const roles = [
 const serialNumber = [
     { collectionName : "client", prefix: "CL"},
     { collectionName : "company", prefix: "CO"},
+    { collectionName : "SubscriptionPlan", prefix: "SP"},
+    { collectionName : "topup", prefix: "TU"},
+    { collectionName : "subscribedUser", prefix: "SU"},
 ]
 
 

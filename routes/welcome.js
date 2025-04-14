@@ -15,20 +15,15 @@ router.get('/welcome', async (req,res) => {
 
 
 router.get('/getCompanyName', async (req, res, next) => {
-
     try {
-
         const company = req.company;
-
         console.log("company",company);
-
         return res.status(httpsStatusCode.OK).send({
             message : "OK",
             data : {
                 name : company?.name,
             }
         })
-        
     } catch (error) {
         
     }
