@@ -286,13 +286,21 @@ const identifyCompany = async (req, res, next) => {
     const company = await companyModel.findOne({ port });
     req.company = company;
   } else {
-    console.log("host",req.headers);
-    
-    const subdomain = host.split('.')[0];
-    console.log("subdomain",subdomain);
-    
-    const company = await companyModel.findOne({ subDomain: subdomain });
-    req.company = company;
+
+    const domainParts = origin.split('.');
+
+    // Check if it's at least a 3-part domain like sub.domain.tld
+    if (domainParts.length >= 3) {
+      const subdomain = domainParts[0];
+      console.log("subdomain:", subdomain);
+
+      const company = await companyModel.findOne({ subdomain });
+      req.company = company;
+    } else {
+      console.log("No subdomain detected");
+      req.company = null;
+    }
+
   }
   // if (!req.company) {
   //   return res.status(404).json({ error: 'Company not found' });
