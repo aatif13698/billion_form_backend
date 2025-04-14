@@ -45,7 +45,7 @@ app.use(cors({
 app.use(express.json()); // Parse JSON bodies
 app.use(express.urlencoded({ extended: true })); // Parse URL-encoded bodies
 app.use(express.static(path.join(__dirname, 'public'))); // Serve static files
-// app.use(identifyCompany)
+app.use(identifyCompany)
 app.use(errorHandler);
 app.use(morgan('dev'));
 
