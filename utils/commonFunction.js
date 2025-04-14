@@ -310,6 +310,8 @@ const identifyCompany = async (req, res, next) => {
   next();
 };
 
+// testing comment
+
 function extractPath(url) {
   const match = url.match(/^https:\/\/(.+)$/);
   return match ? match[1] : null;
