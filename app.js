@@ -49,13 +49,13 @@ app.use(express.static(path.join(__dirname, 'public'))); // Serve static files
 app.use(errorHandler);
 app.use(morgan('dev'));
 
-app.use("/api", welcomeRouter.router);
+app.use("/", welcomeRouter.router);
 
 
 // Routes for different roles
-app.use("/api/auth", authRouter.router);
-app.use("/api/superadmin/administration", superAdminAdministrationhRouter.router);
-app.use("/api/admin", adminRouter.router);
+app.use("/auth", authRouter.router);
+app.use("/superadmin/administration", superAdminAdministrationhRouter.router);
+app.use("/admin", adminRouter.router);
 
 // Start server function
 const startServer = async () => {
