@@ -290,7 +290,7 @@ const identifyCompany = async (req, res, next) => {
     const domainParts = origin?.split('.');
 
     // Check if it's at least a 3-part domain like sub.domain.tld
-    if (domainParts.length >= 3) {
+    if (domainParts?.length >= 3) {
       const subdomain = domainParts[0];
       console.log("subdomain:", subdomain);
       const aaa = extractPath(subdomain);
@@ -353,7 +353,7 @@ const restrictOtherCompany = async (req, res, next) => {
   } else {
     const domainParts = origin?.split('.');
 
-    if (domainParts.length >= 3) {
+    if (domainParts?.length >= 3) {
       const subdomain = domainParts[0];
       console.log("subdomain:", subdomain);
       const aaa = extractPath(subdomain);
@@ -380,7 +380,7 @@ const restrictOtherCompany = async (req, res, next) => {
       const findUserAccess = access.users.filter((item) => {
         return item?._id?.toString() === user._id.toString();
       });
-      if (findUserAccess.length == 0) {
+      if (findUserAccess?.length == 0) {
         return res.status(403).json({ message: "User does not have access to this company" });
       }
       req.company = company;
