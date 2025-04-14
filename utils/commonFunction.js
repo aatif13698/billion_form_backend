@@ -293,7 +293,10 @@ const identifyCompany = async (req, res, next) => {
     if (domainParts.length >= 3) {
       const subdomain = domainParts[0];
       console.log("subdomain:", subdomain);
-      const company = await companyModel.findOne({ subDomain: subdomain });
+      const aaa = extractCode(subdomain);
+      console.log("aaa:", aaa);
+
+      const company = await companyModel.findOne({ subDomain: aaa });
       req.company = company;
     } else {
       console.log("No subdomain detected");
@@ -306,6 +309,12 @@ const identifyCompany = async (req, res, next) => {
   // }
   next();
 };
+
+
+function extractCode(url) {
+  const match = url.match(/^https:\/\/([a-z]{3})$/i);
+  return match ? match[1] : null;
+}
 
 
 const restrictOtherCompany = async (req, res, next) => {
