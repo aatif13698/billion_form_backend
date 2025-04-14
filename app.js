@@ -35,7 +35,8 @@ const adminRouter = require("./adminAdministration/routes/admin.routes");
 
 // Middleware setup
 app.use(cors({
-    origin: process.env.NODE_ENV === 'development' ? '*' : 'https://*.aestree.in',
+    // origin: process.env.NODE_ENV === 'development' ? '*' : 'https://*.aestree.in',
+    origin: '*',
     methods: ['GET', 'POST', 'PUT', 'DELETE'],
     allowedHeaders: ['Content-Type', 'Authorization'],
     credentials: true, // If you need to support cookies/auth
