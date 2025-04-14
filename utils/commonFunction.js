@@ -310,9 +310,8 @@ const identifyCompany = async (req, res, next) => {
   next();
 };
 
-
-function extractCode(url) {
-  const match = url.match(/^https:\/\/([a-z]{3})$/i);
+function extractPath(url) {
+  const match = url.match(/^https:\/\/(.+)$/);
   return match ? match[1] : null;
 }
 
