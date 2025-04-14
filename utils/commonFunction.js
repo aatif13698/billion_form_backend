@@ -286,10 +286,12 @@ const identifyCompany = async (req, res, next) => {
     const company = await companyModel.findOne({ port });
     req.company = company;
   } else {
+    console.log("host",host);
+    
     const subdomain = host.split('.')[0];
     console.log("subdomain",subdomain);
     
-    const company = await companyModel.findOne({ subdomain });
+    const company = await companyModel.findOne({ subDomain: subdomain });
     req.company = company;
   }
   // if (!req.company) {
