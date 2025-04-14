@@ -287,12 +287,14 @@ const identifyCompany = async (req, res, next) => {
     req.company = company;
   } else {
     const subdomain = host.split('.')[0];
+    console.log("subdomain",subdomain);
+    
     const company = await companyModel.findOne({ subdomain });
     req.company = company;
   }
-  if (!req.company) {
-    return res.status(404).json({ error: 'Company not found' });
-  }
+  // if (!req.company) {
+  //   return res.status(404).json({ error: 'Company not found' });
+  // }
   next();
 };
 
