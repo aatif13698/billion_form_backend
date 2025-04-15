@@ -52,11 +52,17 @@ app.use(morgan('dev'));
 
 app.use("/", welcomeRouter.router);
 
-
+// for production
 // Routes for different roles
 app.use("/auth", authRouter.router);
 app.use("/superadmin/administration", superAdminAdministrationhRouter.router);
 app.use("/admin", adminRouter.router);
+
+
+// for local
+app.use("/api/auth", authRouter.router);
+app.use("/api/superadmin/administration", superAdminAdministrationhRouter.router);
+app.use("/api/admin", adminRouter.router);
 
 // Start server function
 const startServer = async () => {

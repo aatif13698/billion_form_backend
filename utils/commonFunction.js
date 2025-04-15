@@ -21,11 +21,6 @@ const BASE_DOMAIN = IS_DEV ? 'localhost' : 'billionforms.com';
 const BASE_PORT = process.env.PORT || 3000;
 
 
-
-
-
-
-
 async function insertRole() {
   Roles.countDocuments({})
     .exec()
@@ -43,8 +38,6 @@ async function insertRole() {
     .finally(() => { });
 }
 
-
-
 async function insertSerialNumber() {
   SerialNumber.countDocuments({})
     .exec()
@@ -60,7 +53,6 @@ async function insertSerialNumber() {
       console.error("Error in inserting serial number:", err);
     })
 }
-
 
 async function createSuperAdmin() {
   try {
@@ -142,7 +134,6 @@ async function createSuperAdmin() {
   }
 }
 
-
 // create access of super admin
 async function createAccess() {
   try {
@@ -188,8 +179,6 @@ async function createAccess() {
     console.log("error in inserting super admin", error);
   }
 }
-
-
 
 const validateLoginInput = (req, res, next) => {
   const { identifier, password, rememberMe } = req.body;
@@ -274,8 +263,6 @@ const validateClientInput = (req, res, next) => {
   }
   next();
 };
-
-
 
 const identifyCompany = async (req, res, next) => {
   const host = req.headers.host;

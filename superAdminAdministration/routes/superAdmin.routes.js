@@ -49,7 +49,7 @@ router.post('/create-company', async (req, res, next) => {
     const newCompany = new companyModel({
       serialNumber: serial,
       name: name,
-      subDomain: subDomain.toLowerCase(),
+      subDomain: subDomain.toLowerCase().trim(),
       port,
       adminEmail,
       adminPassword: hashedPassword

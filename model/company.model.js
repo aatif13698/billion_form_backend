@@ -4,8 +4,6 @@ require('dotenv').config();
 
 
 const IS_DEV = process.env.NODE_ENV === 'development';
-const BASE_DOMAIN = IS_DEV ? 'localhost' : 'millionsform.com';
-const BASE_PORT = process.env.PORT || 3000;
 
 
 const mongoose = require("mongoose");
@@ -18,7 +16,7 @@ const companySchema = new Schema(
     serialNumber: { type: String, default : null },
     name: { type: String, required: true },
     subDomain: { type: String },
-    port: { type: Number, required: IS_DEV },
+    port: { type: Number },
     adminEmail: {
       type: String, unique: true, lowecase: true,
       trim: true, sparse: true, index: true
