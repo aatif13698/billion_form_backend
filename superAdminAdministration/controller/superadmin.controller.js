@@ -587,7 +587,7 @@ exports.updateCompany = async (req, res, next) => {
       company.adminPassword = hashedPassword;
     }
     company.name = name;
-    company.subDomain = subDomain.toLowerCase();
+    company.subDomain = subDomain.toLowerCase().trim();
     await company.save();
     // Update login URL for redirection
     const loginUrl = IS_DEV

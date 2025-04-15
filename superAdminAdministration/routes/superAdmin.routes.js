@@ -44,7 +44,7 @@ router.post('/create-company', async (req, res, next) => {
     const saltRounds = 10;
     const hashedPassword = await bcrypt.hash(adminPassword, saltRounds);
     // In dev, assign next available port
-    const port = IS_DEV ? await getNextAvailablePort() : null;
+    const port = await getNextAvailablePort();
     const serial = await getSerialNumber("company");
     const newCompany = new companyModel({
       serialNumber: serial,
@@ -104,7 +104,7 @@ router
 
 router.route("/create/cleint").post(validateClientInput, superAdminController.createClient);
 
-router.post('/update/client', superAdminAuth, superAdminController.updateClient );
+router.post('/update/client', superAdminAuth, superAdminController.updateClient);
 
 router.get('/get/client', superAdminAuth, superAdminController.getClientsList);
 
@@ -128,9 +128,9 @@ router.get('/get/all/client', superAdminAuth, superAdminController.getAllClients
 
 // --------- subscription routes start here -------------------
 
-router.post("/create/subscription",superAdminAuth, superAdminController.createSubscription);
+router.post("/create/subscription", superAdminAuth, superAdminController.createSubscription);
 
-router.post('/update/subscription', superAdminAuth, superAdminController.updateSubscription );
+router.post('/update/subscription', superAdminAuth, superAdminController.updateSubscription);
 
 router.get('/get/subscription/list', superAdminAuth, superAdminController.getSubscriptionPlanList);
 
@@ -151,9 +151,9 @@ router.post('/restore/subscription', superAdminAuth, superAdminController.restor
 
 // --------- topup routes starts here ---------
 
-router.post("/create/topup",superAdminAuth, superAdminController.createTopup);
+router.post("/create/topup", superAdminAuth, superAdminController.createTopup);
 
-router.post('/update/topup', superAdminAuth, superAdminController.updateTopup );
+router.post('/update/topup', superAdminAuth, superAdminController.updateTopup);
 
 router.get('/get/topup/list', superAdminAuth, superAdminController.getTopupList);
 
@@ -173,9 +173,9 @@ router.post('/restore/topup', superAdminAuth, superAdminController.restoretopup)
 
 // --------- subscribed user routes starts here ---------
 
-router.post("/create/subscribed",superAdminAuth, superAdminController.createSubscsribed);
+router.post("/create/subscribed", superAdminAuth, superAdminController.createSubscsribed);
 
-router.post("/create/assigntopup",superAdminAuth, superAdminController.createAssignTopup);
+router.post("/create/assigntopup", superAdminAuth, superAdminController.createAssignTopup);
 
 router.get('/get/subscribed/list', superAdminAuth, superAdminController.getListSubscsribed);
 
