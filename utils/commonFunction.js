@@ -364,8 +364,10 @@ const restrictOtherCompany = async (req, res, next) => {
       const user = await User.findOne(query)
         .populate("role")
         .select("_id email phone");
+        console.log("user",user);
+        
       const findUserAccess = access.users.filter((item) => {
-        return item?._id?.toString() === user._id.toString();
+        return item?._id?.toString() === user?._id.toString();
       });
       if (findUserAccess?.length == 0) {
         return res.status(403).json({ message: "User does not have access to this company" });
