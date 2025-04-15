@@ -356,7 +356,7 @@ exports.getClientsList = async (req, res, next) => {
           path: 'companyId',
           select: 'name',
         })
-        .select('serialNumber firstName lastName email phone companyId _id')
+        .select('serialNumber firstName  isActive lastName email phone companyId _id')
         .lean(),
       User.countDocuments(filters),
     ]);
