@@ -2,24 +2,21 @@
 
 const express = require("express");
 require('dotenv').config(); // Load environment variables first
-const crypto = require("crypto");
 const bcrypt = require("bcrypt")
-
-
 const router = express.Router();
-
 const superAdminController = require("../controller/superadmin.controller");
 const { validateLoginInput, startCompanyServer, validateClientInput, getSerialNumber } = require("../../utils/commonFunction");
-
 const { superAdminAuth } = require("../../middleware/authorization/superAdmin");
 const customFieldModel = require("../../model/customField.model");
 const companyModel = require("../../model/company.model");
 const userModel = require("../../model/user.model");
-const CustomError = require("../../utils/customError");
-const httpsStatusCode = require("../../utils/https-status-code");
-const message = require("../../utils/message");
 const accessModel = require("../../model/access.model");
 
+const { uploadImages } = require("../../utils/multer")
+
+const httpsStatusCode = require("../../utils/https-status-code");
+const message = require("../../utils/message");
+const multer = require("multer");
 const IS_DEV = process.env.NODE_ENV === 'development';
 const BASE_DOMAIN = IS_DEV ? 'localhost' : 'billionforms.com';
 const BASE_PORT = process.env.PORT || 3000;
@@ -186,6 +183,43 @@ router.get('/get/subscribed/:id', superAdminAuth, superAdminController.getPartic
 
 
 // --------- subscribed user routes ends here ---------
+
+
+// --------- Organization routes starts here -------------------
+
+
+router.post("/create/organization", superAdminAuth, (req, res, next) => {
+  uploadImages.fields([
+    { name: 'logo', maxCount: 1 },
+    { name: 'banner', maxCount: 1 }
+  ])(req, res, (err) => {
+    if (err) {
+      if (err instanceof multer.MulterError) {
+        // MulterError: File too large
+        return res.status(httpsStatusCode.BadRequest).send({
+          message: 'File too large. Maximum file size allowed is 2 MB.'
+        });
+      } else {
+        // Other errors
+        console.error('Multer Error:', err.message);
+        return res.status(httpsStatusCode.BadRequest).send({
+          message: err.message
+        });
+      }
+    }
+    next();
+  });
+}, superAdminController.createOrganization);
+
+router.get('/get/organization/list', superAdminAuth, superAdminController.getOrganizationList);
+
+router.post("/activeInactive/organization", superAdminAuth, superAdminController.activeInactiveOrganization);
+
+router.get('/get/organization/:id', superAdminAuth, superAdminController.getIndividualOrganization);
+
+
+// --------- Organization routes ends here -------------------
+
 
 
 

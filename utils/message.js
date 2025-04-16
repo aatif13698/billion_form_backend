@@ -127,6 +127,16 @@ module.exports = {
   lblSubscribedUserIdrequired: "SubscribedUser Id id required!",
 
 
+  // organization 
+  lblOrganizationNotFound: "Organization not found!",
+  lblOrganizationAlreadyExists: "Organization already exists with this name",
+  lblOrganizationCreatedSuccess: "Organization created successfully!",
+  lblOrganizationUpdatedSuccess: "Organization updated successfully!",
+  lblOrganizationFoundSuccessfully: "Organization found successfully!",
+  lblOrganizationSoftDeletedSuccess: "Organization soft deleted successfully!",
+  lblOrganizationRestoredSuccess: "Organization restored succesfully!",
+  lblOrganizationIdrequired: "Organization Id id required!",
+
 
 
 

@@ -160,3 +160,20 @@ router
   });
 
 exports.router = router;
+
+
+
+
+// --------- Organization routes starts here -------------------
+
+
+// router.post("/create/organization", superAdminAuth, superAdminController.createSubscsribed);
+
+// router.get('/get/organization/list', superAdminAuth, superAdminController.getListSubscsribed);
+
+// router.post("/activeInactive/organization", superAdminAuth, superAdminController.activeInactiveTopup);
+
+// router.get('/get/organization/:id', superAdminAuth, superAdminController.getParticularSubscsribedUser);
+
+
+// --------- Organization routes starts here -------------------

@@ -17,6 +17,7 @@ const topupModel = require("../../model/topup.model");
 
 const commonFunction = require("../../utils/commonFunction");
 const subscribedUserModel = require("../../model/subscribedUser.model");
+const organizationModel = require("../../model/organization.model");
 
 
 const IS_DEV = process.env.NODE_ENV === 'development';
@@ -1701,3 +1702,465 @@ exports.getParticularSubscsribedUser = async (req, res, next) => {
 
 
 // ---------- subscribed controller ends here ----------
+
+
+
+
+
+// ---------- Organization controller starts here ----------
+
+// exports.createOrganization = async (req, res, next) => {
+//   try {
+//     const user = req.user;
+//     const { name, captionText, address, email, phone } = req.body;
+//     if (!name || !captionText || !address || !email || !phone ) {
+//       return res.status(httpsStatusCode.BadRequest).send({
+//         success: false,
+//         message: message.lblRequiredFieldMissing,
+//         errorCode: "FIELD_MISSIING",
+//       });
+//     }
+
+//     const existingOrganization = await organizationModel.find({
+//       userId : user?._id,
+//       name : name
+//     });
+
+//     if(existingOrganization){
+//       return res.status(httpsStatusCode.Conflict).send({
+//         success: false,
+//         message: message.lblOrganizationAlreadyExists,
+//         errorCode: "ORGANIZATION_ALREADY_EXISTS",
+//       })
+//     }
+   
+//     const serial = await getSerialNumber("organization");
+
+//     await organizationModel.create({
+//       serialNumber : serial,
+//       name, captionText, address, email, phone
+//     });
+   
+
+//     // Return success response
+//     return res.status(httpsStatusCode.Created).json({
+//       success: true,
+//       message: message.lblOrganizationCreatedSuccess,
+//       data: {
+//         subscription: newTopup,
+//       },
+//     });
+//   } catch (error) {
+//     console.error("Organization creation error:", error);
+//     // Generic server error
+//     return res.status(httpsStatusCode.InternalServerError).json({
+//       success: false,
+//       message: "Internal server error",
+//       errorCode: "SERVER_ERROR",
+//       error: process.env.NODE_ENV === "development" ? error.message : undefined,
+//     });
+//   }
+// };
+
+// new
+
+exports.createOrganization = async (req, res) => {
+  try {
+      const user = req.user;
+      const { name, captionText, address, email, phone } = req.body;
+
+      // Validate required fields
+      if (!name || !captionText || !address || !email || !phone) {
+          return res.status(400).json({
+              success: false,
+              message: 'All required fields must be provided',
+              errorCode: 'FIELD_MISSING'
+          });
+      }
+
+      // Validate email format
+      const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+      if (!emailRegex.test(email)) {
+          return res.status(400).json({
+              success: false,
+              message: 'Invalid email format',
+              errorCode: 'INVALID_EMAIL'
+          });
+      }
+
+      // Validate phone format (basic validation, adjust as needed)
+      const phoneRegex = /^\+?[\d\s-]{10,}$/;
+      if (!phoneRegex.test(phone)) {
+          return res.status(400).json({
+              success: false,
+              message: 'Invalid phone number format',
+              errorCode: 'INVALID_PHONE'
+          });
+      }
+
+      // Check for existing organization
+      const existingOrganization = await organizationModel.findOne({
+          userId: user?._id,
+          name,
+          deletedAt: null
+      });
+
+      if (existingOrganization) {
+          return res.status(409).json({
+              success: false,
+              message: 'Organization with this name already exists',
+              errorCode: 'ORGANIZATION_ALREADY_EXISTS'
+          });
+      }
+
+      // Handle uploaded files
+      let logoPath = null;
+      let bannerPath = null;
+
+      if (req.files) {
+          if (req.files.logo) {
+              logoPath = `/images/${req.files.logo[0].filename}`;
+          }
+          if (req.files.banner) {
+              bannerPath = `/images/${req.files.banner[0].filename}`;
+          }
+      }
+
+      // Generate serial number
+      const serial = await getSerialNumber("organization");
+
+      // Create new organization
+      const newOrganization = await organizationModel.create({
+          userId: user._id,
+          serialNumber: serial,
+          name,
+          captionText,
+          address,
+          email: email.toLowerCase(),
+          phone,
+          logo: logoPath,
+          banner: bannerPath,
+          isActive: true
+      });
+
+      // Return success response
+      return res.status(201).json({
+          success: true,
+          message: 'Organization created successfully',
+          data: {
+              organization: {
+                  id: newOrganization._id,
+                  serialNumber: newOrganization.serialNumber,
+                  name: newOrganization.name,
+                  email: newOrganization.email
+              }
+          }
+      });
+
+  } catch (error) {
+      console.error('Organization creation error:', error);
+
+      // Handle specific multer errors
+      if (error instanceof multer.MulterError) {
+          return res.status(400).json({
+              success: false,
+              message: error.message === 'File too large' 
+                  ? 'File size exceeds 2MB limit'
+                  : 'File upload error',
+              errorCode: 'FILE_UPLOAD_ERROR'
+          });
+      }
+
+      // Handle validation errors
+      if (error.name === 'ValidationError') {
+          return res.status(400).json({
+              success: false,
+              message: 'Validation error',
+              errorCode: 'VALIDATION_ERROR',
+              errors: Object.values(error.errors).map(err => err.message)
+          });
+      }
+
+      // Generic server error
+      return res.status(500).json({
+          success: false,
+          message: 'Internal server error',
+          errorCode: 'SERVER_ERROR',
+          error: IS_DEV ? error.message : undefined
+      });
+  }
+};
+
+
+
+// update Organization
+exports.updateOrganization = async (req, res, next) => {
+  try {
+    const { topupId, name, subscriptionCharge, validityPeriod, formLimit, organisationLimit, userLimint, } = req.body;
+    if (!name || !subscriptionCharge || !validityPeriod || !formLimit || !organisationLimit || !userLimint) {
+      return res.status(httpsStatusCode.BadRequest).send({
+        success: false,
+        message: message.lblRequiredFieldMissing,
+        errorCode: "FIELD_MISSIING",
+      });
+    }
+    const currentTopup = await topupModel.findById(topupId);
+    if (!currentTopup) {
+      return res.status(httpsStatusCode.NotFound).json({
+        success: false,
+        message: message.lblTopupNotFound,
+        errorCode: "TOPUP_NOT_FOUND",
+      });
+    }
+    const existin = await topupModel.findOne({
+      name: name,
+      _id: { $ne: topupId },
+    });
+    if (existin) {
+      return res.status(httpsStatusCode.Conflict).json({
+        success: false,
+        message: message.lblTopupAlreadyExists,
+        errorCode: "TOPUP_EXISTS",
+      });
+    }
+    Object.assign(currentTopup, {
+      name, subscriptionCharge, validityPeriod, formLimit, organisationLimit, userLimint,
+    });
+    await currentTopup.save()
+    // Return success response
+    return res.status(httpsStatusCode.Created).json({
+      success: true,
+      message: message.lblTopupUpdatedSuccess,
+      data: {
+        subscription: currentTopup,
+      },
+    });
+  } catch (error) {
+    console.error("Topup creation error:", error);
+    // Generic server error
+    return res.status(httpsStatusCode.InternalServerError).json({
+      success: false,
+      message: "Internal server error",
+      errorCode: "SERVER_ERROR",
+      error: process.env.NODE_ENV === "development" ? error.message : undefined,
+    });
+  }
+};
+
+// list organization
+exports.getOrganizationList = async (req, res, next) => {
+  try {
+    const { keyword = '', page = 1, perPage = 10, } = req.query;
+    const limit = perPage
+    const skip = (page - 1) * limit;
+    const keywordRegex = { $regex: keyword.trim(), $options: "i" };
+    let filters = {
+      ...(keyword && {
+        $or: [
+          { serialNumber: keywordRegex },
+          { name: keywordRegex },
+          { validityPeriod: keywordRegex },
+          ...(isNaN(Number(keyword)) ? [] : [
+            { subscriptionCharge: Number(keyword) },
+            { formLimit: Number(keyword) },
+            { organisationLimit: Number(keyword) },
+            { userLimint: Number(keyword) }, // assuming your schema still uses `userLimint` (typo?)
+          ])
+        ]
+      }),
+    };
+    const [topups, total] = await Promise.all([
+      topupModel.find(filters).skip(skip).limit(limit).sort({ _id: -1 }),
+      topupModel.countDocuments(filters),
+    ]);
+    return res.status(httpsStatusCode.OK).json({
+      success: true,
+      message: message.lblTopupFoundSuccessfully,
+      data: {
+        data: topups,
+        total: total
+      },
+    });
+  } catch (error) {
+    console.error("Topup fetching error:", error);
+    return res.status(httpsStatusCode.InternalServerError).json({
+      success: false,
+      message: "Internal server error",
+      errorCode: "SERVER_ERROR",
+      error: process.env.NODE_ENV === "development" ? error.message : undefined,
+    });
+  }
+};
+
+// get all organization
+exports.getAllOrganization = async (req, res, next) => {
+  try {
+    let filters = {
+      isActive: true,
+      deletedAt: null,
+    };
+    const [topupPlans] = await Promise.all([
+      topupModel.find(filters).sort({ _id: 1 }).select('serialNumber name subscriptionCharge _id'),
+    ]);
+    return res.status(httpsStatusCode.OK).json({
+      success: true,
+      message: message.lblTopupFoundSuccessfully,
+      data: {
+        data: topupPlans,
+      },
+    });
+  } catch (error) {
+    console.error("Topup fetching error:", error);
+    return res.status(httpsStatusCode.InternalServerError).json({
+      success: false,
+      message: "Internal server error",
+      errorCode: "SERVER_ERROR",
+      error: process.env.NODE_ENV === "development" ? error.message : undefined,
+    });
+  }
+};
+
+// active inactive organization
+exports.activeInactiveOrganization = async (req, res, next) => {
+  try {
+    const { status, topupId, keyword, page, perPage } = req.body;
+    req.query.keyword = keyword;
+    req.query.page = page;
+    req.query.perPage = perPage;
+    if (!topupId) {
+      return res.status(400).send({
+        message: message.lblTopupIdrequired,
+      });
+    }
+    const topup = await topupModel.findById(topupId);
+    if (!topup) {
+      return res.status(httpsStatusCode.BadRequest).send({
+        message: message.lblTopupNotFound,
+      });
+    }
+    Object.assign(topup, {
+      isActive: status === "1",
+    });
+    await topup.save();
+    this.getTopupList(req, res)
+  } catch (error) {
+    console.error("active inactive error:", error);
+    return res.status(httpsStatusCode.InternalServerError).json({
+      success: false,
+      message: "Internal server error",
+      errorCode: "SERVER_ERROR",
+      error: process.env.NODE_ENV === "development" ? error.message : undefined,
+    });
+  }
+};
+
+// get individual organization
+exports.getIndividualOrganization = async (req, res, next) => {
+  try {
+    const { id } = req.params;
+    const [topup] = await Promise.all([
+      topupModel.findById(id).lean()
+    ]);
+    if (!topup) {
+      return res.status(httpsStatusCode.NotFound).json({
+        success: false,
+        message: message.lblTopupNotFound,
+      });
+
+    }
+    return res.status(httpsStatusCode.OK).json({
+      success: true,
+      message: message.lblTopupFoundSuccessfully,
+      data: {
+        data: topup,
+      },
+    });
+  } catch (error) {
+    console.error("topup fetching error:", error);
+    return res.status(httpsStatusCode.InternalServerError).json({
+      success: false,
+      message: "Internal server error",
+      errorCode: "SERVER_ERROR",
+      error: process.env.NODE_ENV === "development" ? error.message : undefined,
+    });
+  }
+};
+
+// soft delete topup
+exports.softDeleteOrganization = async (req, res, next) => {
+  try {
+    const { topupId, keyword, page, perPage } = req.body;
+    req.query.keyword = keyword;
+    req.query.page = page;
+    req.query.perPage = perPage;
+    if (!topupId) {
+      return res.status(httpsStatusCode.BadRequest).send({
+        message: message.lblTopupIdrequired,
+      });
+    }
+    const topup = await topupModel.findById(topupId);
+    if (!topup) {
+      return res.status(httpsStatusCode.NotFound).send({
+        message: message.lblTopupNotFound,
+      });
+    }
+    Object.assign(topup, {
+      deletedAt: new Date(),
+    });
+    await topup.save();
+    this.getTopupList(req, res)
+  } catch (error) {
+    console.error("topup soft delete error:", error);
+    return res.status(httpsStatusCode.InternalServerError).json({
+      success: false,
+      message: "Internal server error",
+      errorCode: "SERVER_ERROR",
+      error: process.env.NODE_ENV === "development" ? error.message : undefined,
+    });
+  }
+};
+
+// restore organization
+exports.restoreOrganizarion = async (req, res, next) => {
+  try {
+    const { topupId, keyword, page, perPage } = req.body;
+    req.query.keyword = keyword;
+    req.query.page = page;
+    req.query.perPage = perPage;
+    if (!topupId) {
+      return res.status(httpsStatusCode.BadRequest).send({
+        message: message.lblTopupIdrequired,
+      });
+    }
+    const topup = await topupModel.findById(topupId);
+    if (!topup) {
+      return res.status(httpsStatusCode.NotFound).send({
+        message: message.lblSubscriptionPlanNotFound,
+      });
+    }
+    Object.assign(topup, {
+      deletedAt: null,
+    });
+    await topup.save();
+    this.getTopupList(req, res)
+  } catch (error) {
+    console.error("topup restore error:", error);
+    return res.status(httpsStatusCode.InternalServerError).json({
+      success: false,
+      message: "Internal server error",
+      errorCode: "SERVER_ERROR",
+      error: process.env.NODE_ENV === "development" ? error.message : undefined,
+    });
+  }
+};
+
+
+
+
+
+
+
+
+// ---------- Organization controller ends here ----------
+
+
