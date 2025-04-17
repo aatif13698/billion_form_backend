@@ -18,6 +18,7 @@ const topupModel = require("../../model/topup.model");
 const commonFunction = require("../../utils/commonFunction");
 const subscribedUserModel = require("../../model/subscribedUser.model");
 const organizationModel = require("../../model/organization.model");
+const multer = require("multer");
 
 
 const IS_DEV = process.env.NODE_ENV === 'development';
@@ -1947,70 +1948,24 @@ exports.updateOrganization = async (req, res, next) => {
   }
 };
 
-// list organization
-exports.getOrganizationList = async (req, res, next) => {
-  try {
-    const { keyword = '', page = 1, perPage = 10, } = req.query;
-    const limit = perPage
-    const skip = (page - 1) * limit;
-    const keywordRegex = { $regex: keyword.trim(), $options: "i" };
-    let filters = {
-      ...(keyword && {
-        $or: [
-          { serialNumber: keywordRegex },
-          { name: keywordRegex },
-          { validityPeriod: keywordRegex },
-          ...(isNaN(Number(keyword)) ? [] : [
-            { subscriptionCharge: Number(keyword) },
-            { formLimit: Number(keyword) },
-            { organisationLimit: Number(keyword) },
-            { userLimint: Number(keyword) }, // assuming your schema still uses `userLimint` (typo?)
-          ])
-        ]
-      }),
-    };
-    const [topups, total] = await Promise.all([
-      topupModel.find(filters).skip(skip).limit(limit).sort({ _id: -1 }),
-      topupModel.countDocuments(filters),
-    ]);
-    return res.status(httpsStatusCode.OK).json({
-      success: true,
-      message: message.lblTopupFoundSuccessfully,
-      data: {
-        data: topups,
-        total: total
-      },
-    });
-  } catch (error) {
-    console.error("Topup fetching error:", error);
-    return res.status(httpsStatusCode.InternalServerError).json({
-      success: false,
-      message: "Internal server error",
-      errorCode: "SERVER_ERROR",
-      error: process.env.NODE_ENV === "development" ? error.message : undefined,
-    });
-  }
-};
 
 // get all organization
 exports.getAllOrganization = async (req, res, next) => {
   try {
-    let filters = {
-      isActive: true,
-      deletedAt: null,
-    };
-    const [topupPlans] = await Promise.all([
-      topupModel.find(filters).sort({ _id: 1 }).select('serialNumber name subscriptionCharge _id'),
+
+    const {userId} = req.params;
+    const [organizarions] = await Promise.all([
+      organizationModel.find({userId : userId}).sort({ _id: 1 }).lean(),
     ]);
     return res.status(httpsStatusCode.OK).json({
       success: true,
-      message: message.lblTopupFoundSuccessfully,
+      message: message.lblOrganizationFoundSuccessfully,
       data: {
-        data: topupPlans,
+        data: organizarions,
       },
     });
   } catch (error) {
-    console.error("Topup fetching error:", error);
+    console.error("Organization fetching error:", error);
     return res.status(httpsStatusCode.InternalServerError).json({
       success: false,
       message: "Internal server error",
@@ -2058,25 +2013,25 @@ exports.activeInactiveOrganization = async (req, res, next) => {
 exports.getIndividualOrganization = async (req, res, next) => {
   try {
     const { id } = req.params;
-    const [topup] = await Promise.all([
-      topupModel.findById(id).lean()
+    const [organization] = await Promise.all([
+      organizationModel.findById(id).lean()
     ]);
-    if (!topup) {
+    if (!organization) {
       return res.status(httpsStatusCode.NotFound).json({
         success: false,
-        message: message.lblTopupNotFound,
+        message: message.lblOrganizationNotFound,
       });
 
     }
     return res.status(httpsStatusCode.OK).json({
       success: true,
-      message: message.lblTopupFoundSuccessfully,
+      message: message.lblOrganizationFoundSuccessfully,
       data: {
-        data: topup,
+        data: organization,
       },
     });
   } catch (error) {
-    console.error("topup fetching error:", error);
+    console.error("Organization fetching error:", error);
     return res.status(httpsStatusCode.InternalServerError).json({
       success: false,
       message: "Internal server error",

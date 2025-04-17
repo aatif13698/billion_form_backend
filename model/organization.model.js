@@ -20,10 +20,10 @@ const organizationSchema = new Schema(
         captionText: { type: String, default: null },
         address: { type: String, default: null },
         email: {
-            type: String, unique: true, lowecase: true,
+            type: String, lowecase: true,
             trim: true, sparse: true, index: true
         },
-        phone: { type: String, unique: true, sparse: true, trim: true, index: true }, 
+        phone: { type: String, sparse: true, trim: true, index: true }, 
         logo: { type: String, default: null },
         banner: { type: String, default: null },
         isActive: { type: Boolean, default: false },

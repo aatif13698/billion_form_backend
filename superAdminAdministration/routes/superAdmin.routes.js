@@ -211,7 +211,7 @@ router.post("/create/organization", superAdminAuth, (req, res, next) => {
   });
 }, superAdminController.createOrganization);
 
-router.get('/get/organization/list', superAdminAuth, superAdminController.getOrganizationList);
+router.get('/get/organization/all/:userId', superAdminAuth, superAdminController.getAllOrganization);
 
 router.post("/activeInactive/organization", superAdminAuth, superAdminController.activeInactiveOrganization);
 

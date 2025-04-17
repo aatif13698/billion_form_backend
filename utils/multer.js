@@ -71,8 +71,8 @@ const uploadProfile = multer({
 // Multer storage configuration
 const imagesStorage = multer.diskStorage({
     destination: (req, file, cb) => {
-        const uploadPath = path.join(__dirname, './public/images');
-        cb(null, uploadPath);
+        // const uploadPath = path.join(__dirname, './public/images');
+        cb(null, './public/images');
     },
     filename: (req, file, cb) => {
         const uniqueName = `${uuidv4()}${path.extname(file.originalname).toLowerCase()}`;
