@@ -211,6 +211,30 @@ router.post("/create/organization", superAdminAuth, (req, res, next) => {
   });
 }, superAdminController.createOrganization);
 
+
+router.post("/update/organization", superAdminAuth, (req, res, next) => {
+  uploadImages.fields([
+    { name: 'logo', maxCount: 1 },
+    { name: 'banner', maxCount: 1 }
+  ])(req, res, (err) => {
+    if (err) {
+      if (err instanceof multer.MulterError) {
+        // MulterError: File too large
+        return res.status(httpsStatusCode.BadRequest).send({
+          message: 'File too large. Maximum file size allowed is 2 MB.'
+        });
+      } else {
+        // Other errors
+        console.error('Multer Error:', err.message);
+        return res.status(httpsStatusCode.BadRequest).send({
+          message: err.message
+        });
+      }
+    }
+    next();
+  });
+}, superAdminController.updateOrganization);
+
 router.get('/get/organization/all/:userId', superAdminAuth, superAdminController.getAllOrganization);
 
 router.post("/activeInactive/organization", superAdminAuth, superAdminController.activeInactiveOrganization);

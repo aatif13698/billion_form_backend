@@ -1665,16 +1665,16 @@ exports.getParticularSubscsribedUser = async (req, res, next) => {
       });
     }
     let subscribedUser = await subscribedUserModel.findById(id).populate({
-      path : 'subscription.subscriptionId',
-      select : '-subscribers'
+      path: 'subscription.subscriptionId',
+      select: '-subscribers'
     }).populate({
-      path : "userId",
-      select : "firstName lastName email phone _id"
+      path: "userId",
+      select: "firstName lastName email phone _id"
     })
-    .populate({
-      path : 'topup.topupId',
-      select : '-subscribers'
-    })
+      .populate({
+        path: 'topup.topupId',
+        select: '-subscribers'
+      })
     if (!subscribedUser) {
       return res.status(httpsStatusCode.NotFound).json({
         success: false,
@@ -1734,14 +1734,14 @@ exports.getParticularSubscsribedUser = async (req, res, next) => {
 //         errorCode: "ORGANIZATION_ALREADY_EXISTS",
 //       })
 //     }
-   
+
 //     const serial = await getSerialNumber("organization");
 
 //     await organizationModel.create({
 //       serialNumber : serial,
 //       name, captionText, address, email, phone
 //     });
-   
+
 
 //     // Return success response
 //     return res.status(httpsStatusCode.Created).json({
@@ -1767,183 +1767,246 @@ exports.getParticularSubscsribedUser = async (req, res, next) => {
 
 exports.createOrganization = async (req, res) => {
   try {
-      const user = req.user;
-      const { name, captionText, address, email, phone } = req.body;
+    const user = req.user;
+    const { name, captionText, address, email, phone } = req.body;
 
-      // Validate required fields
-      if (!name || !captionText || !address || !email || !phone) {
-          return res.status(400).json({
-              success: false,
-              message: 'All required fields must be provided',
-              errorCode: 'FIELD_MISSING'
-          });
-      }
-
-      // Validate email format
-      const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
-      if (!emailRegex.test(email)) {
-          return res.status(400).json({
-              success: false,
-              message: 'Invalid email format',
-              errorCode: 'INVALID_EMAIL'
-          });
-      }
-
-      // Validate phone format (basic validation, adjust as needed)
-      const phoneRegex = /^\+?[\d\s-]{10,}$/;
-      if (!phoneRegex.test(phone)) {
-          return res.status(400).json({
-              success: false,
-              message: 'Invalid phone number format',
-              errorCode: 'INVALID_PHONE'
-          });
-      }
-
-      // Check for existing organization
-      const existingOrganization = await organizationModel.findOne({
-          userId: user?._id,
-          name,
-          deletedAt: null
+    // Validate required fields
+    if (!name || !captionText || !address || !email || !phone) {
+      return res.status(400).json({
+        success: false,
+        message: 'All required fields must be provided',
+        errorCode: 'FIELD_MISSING'
       });
+    }
 
-      if (existingOrganization) {
-          return res.status(409).json({
-              success: false,
-              message: 'Organization with this name already exists',
-              errorCode: 'ORGANIZATION_ALREADY_EXISTS'
-          });
-      }
-
-      // Handle uploaded files
-      let logoPath = null;
-      let bannerPath = null;
-
-      if (req.files) {
-          if (req.files.logo) {
-              logoPath = `/images/${req.files.logo[0].filename}`;
-          }
-          if (req.files.banner) {
-              bannerPath = `/images/${req.files.banner[0].filename}`;
-          }
-      }
-
-      // Generate serial number
-      const serial = await getSerialNumber("organization");
-
-      // Create new organization
-      const newOrganization = await organizationModel.create({
-          userId: user._id,
-          serialNumber: serial,
-          name,
-          captionText,
-          address,
-          email: email.toLowerCase(),
-          phone,
-          logo: logoPath,
-          banner: bannerPath,
-          isActive: true
+    // Validate email format
+    const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+    if (!emailRegex.test(email)) {
+      return res.status(400).json({
+        success: false,
+        message: 'Invalid email format',
+        errorCode: 'INVALID_EMAIL'
       });
+    }
 
-      // Return success response
-      return res.status(201).json({
-          success: true,
-          message: 'Organization created successfully',
-          data: {
-              organization: {
-                  id: newOrganization._id,
-                  serialNumber: newOrganization.serialNumber,
-                  name: newOrganization.name,
-                  email: newOrganization.email
-              }
-          }
+    // Validate phone format (basic validation, adjust as needed)
+    const phoneRegex = /^\+?[\d\s-]{10,}$/;
+    if (!phoneRegex.test(phone)) {
+      return res.status(400).json({
+        success: false,
+        message: 'Invalid phone number format',
+        errorCode: 'INVALID_PHONE'
       });
+    }
+
+    // Check for existing organization
+    const existingOrganization = await organizationModel.findOne({
+      userId: user?._id,
+      name,
+      deletedAt: null
+    });
+
+    if (existingOrganization) {
+      return res.status(409).json({
+        success: false,
+        message: 'Organization with this name already exists',
+        errorCode: 'ORGANIZATION_ALREADY_EXISTS'
+      });
+    }
+
+    // Handle uploaded files
+    let logoPath = null;
+    let bannerPath = null;
+
+    if (req.files) {
+      if (req.files.logo) {
+        logoPath = `/images/${req.files.logo[0].filename}`;
+      }
+      if (req.files.banner) {
+        bannerPath = `/images/${req.files.banner[0].filename}`;
+      }
+    }
+
+    // Generate serial number
+    const serial = await getSerialNumber("organization");
+
+    // Create new organization
+    const newOrganization = await organizationModel.create({
+      userId: user._id,
+      serialNumber: serial,
+      name,
+      captionText,
+      address,
+      email: email.toLowerCase(),
+      phone,
+      logo: logoPath,
+      banner: bannerPath,
+      isActive: true
+    });
+
+    // Return success response
+    return res.status(201).json({
+      success: true,
+      message: 'Organization created successfully',
+      data: {
+        organization: {
+          id: newOrganization._id,
+          serialNumber: newOrganization.serialNumber,
+          name: newOrganization.name,
+          email: newOrganization.email
+        }
+      }
+    });
 
   } catch (error) {
-      console.error('Organization creation error:', error);
+    console.error('Organization creation error:', error);
 
-      // Handle specific multer errors
-      if (error instanceof multer.MulterError) {
-          return res.status(400).json({
-              success: false,
-              message: error.message === 'File too large' 
-                  ? 'File size exceeds 2MB limit'
-                  : 'File upload error',
-              errorCode: 'FILE_UPLOAD_ERROR'
-          });
-      }
-
-      // Handle validation errors
-      if (error.name === 'ValidationError') {
-          return res.status(400).json({
-              success: false,
-              message: 'Validation error',
-              errorCode: 'VALIDATION_ERROR',
-              errors: Object.values(error.errors).map(err => err.message)
-          });
-      }
-
-      // Generic server error
-      return res.status(500).json({
-          success: false,
-          message: 'Internal server error',
-          errorCode: 'SERVER_ERROR',
-          error: IS_DEV ? error.message : undefined
+    // Handle specific multer errors
+    if (error instanceof multer.MulterError) {
+      return res.status(400).json({
+        success: false,
+        message: error.message === 'File too large'
+          ? 'File size exceeds 2MB limit'
+          : 'File upload error',
+        errorCode: 'FILE_UPLOAD_ERROR'
       });
+    }
+
+    // Handle validation errors
+    if (error.name === 'ValidationError') {
+      return res.status(400).json({
+        success: false,
+        message: 'Validation error',
+        errorCode: 'VALIDATION_ERROR',
+        errors: Object.values(error.errors).map(err => err.message)
+      });
+    }
+
+    // Generic server error
+    return res.status(500).json({
+      success: false,
+      message: 'Internal server error',
+      errorCode: 'SERVER_ERROR',
+      error: IS_DEV ? error.message : undefined
+    });
   }
 };
 
-
-
-// update Organization
-exports.updateOrganization = async (req, res, next) => {
+// update organization
+exports.updateOrganization = async (req, res) => {
   try {
-    const { topupId, name, subscriptionCharge, validityPeriod, formLimit, organisationLimit, userLimint, } = req.body;
-    if (!name || !subscriptionCharge || !validityPeriod || !formLimit || !organisationLimit || !userLimint) {
-      return res.status(httpsStatusCode.BadRequest).send({
+    const user = req.user;
+    const { organizationId, name, captionText, address, email, phone } = req.body;
+    // Validate required fields
+    if (!name || !captionText || !address || !email || !phone) {
+      return res.status(400).json({
         success: false,
-        message: message.lblRequiredFieldMissing,
-        errorCode: "FIELD_MISSIING",
+        message: 'All required fields must be provided',
+        errorCode: 'FIELD_MISSING'
       });
     }
-    const currentTopup = await topupModel.findById(topupId);
-    if (!currentTopup) {
-      return res.status(httpsStatusCode.NotFound).json({
+    // Validate email format
+    const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+    if (!emailRegex.test(email)) {
+      return res.status(400).json({
         success: false,
-        message: message.lblTopupNotFound,
-        errorCode: "TOPUP_NOT_FOUND",
+        message: 'Invalid email format',
+        errorCode: 'INVALID_EMAIL'
       });
     }
-    const existin = await topupModel.findOne({
-      name: name,
-      _id: { $ne: topupId },
+    // Validate phone format (basic validation, adjust as needed)
+    const phoneRegex = /^\+?[\d\s-]{10,}$/;
+    if (!phoneRegex.test(phone)) {
+      return res.status(400).json({
+        success: false,
+        message: 'Invalid phone number format',
+        errorCode: 'INVALID_PHONE'
+      });
+    }
+    // Check for existing organization
+    // const existingOrganization = await organizationModel.findOne({
+    //   userId: user?._id,
+    //   name,
+    //   deletedAt: null
+    // });
+
+    // if (existingOrganization) {
+    //   return res.status(409).json({
+    //     success: false,
+    //     message: 'Organization with this name already exists',
+    //     errorCode: 'ORGANIZATION_ALREADY_EXISTS'
+    //   });
+    // }
+
+    const existingData = await organizationModel.findById(organizationId)
+    // Handle uploaded files
+    let logoPath = null;
+    let bannerPath = null;
+    if (req.files) {
+      if (req.files.logo) {
+        logoPath = `/images/${req.files.logo[0].filename}`;
+      }
+      if (req.files.banner) {
+        bannerPath = `/images/${req.files.banner[0].filename}`;
+      }
+    }
+    let dataOject = {
+      name,
+      captionText,
+      address,
+      email: email.toLowerCase(),
+      phone,
+    }
+    if (logoPath) {
+      dataOject.logo = logoPath
+    }
+    if (bannerPath) {
+      dataOject.banner = bannerPath
+    }
+    Object.assign(existingData, {
+      ...dataOject
     });
-    if (existin) {
-      return res.status(httpsStatusCode.Conflict).json({
-        success: false,
-        message: message.lblTopupAlreadyExists,
-        errorCode: "TOPUP_EXISTS",
-      });
-    }
-    Object.assign(currentTopup, {
-      name, subscriptionCharge, validityPeriod, formLimit, organisationLimit, userLimint,
-    });
-    await currentTopup.save()
-    // Return success response
-    return res.status(httpsStatusCode.Created).json({
+    await existingData.save()
+    return res.status(201).json({
       success: true,
-      message: message.lblTopupUpdatedSuccess,
+      message: message.lblOrganizationUpdatedSuccess,
       data: {
-        subscription: currentTopup,
-      },
+        organization: {
+          id: existingData._id,
+          serialNumber: existingData.serialNumber,
+          name: existingData.name,
+          email: existingData.email
+        }
+      }
     });
   } catch (error) {
-    console.error("Topup creation error:", error);
+    console.error('Organization updation error:', error);
+    // Handle specific multer errors
+    if (error instanceof multer.MulterError) {
+      return res.status(400).json({
+        success: false,
+        message: error.message === 'File too large'
+          ? 'File size exceeds 2MB limit'
+          : 'File upload error',
+        errorCode: 'FILE_UPLOAD_ERROR'
+      });
+    }
+
+    // Handle validation errors
+    if (error.name === 'ValidationError') {
+      return res.status(400).json({
+        success: false,
+        message: 'Validation error',
+        errorCode: 'VALIDATION_ERROR',
+        errors: Object.values(error.errors).map(err => err.message)
+      });
+    }
     // Generic server error
-    return res.status(httpsStatusCode.InternalServerError).json({
+    return res.status(500).json({
       success: false,
-      message: "Internal server error",
-      errorCode: "SERVER_ERROR",
-      error: process.env.NODE_ENV === "development" ? error.message : undefined,
+      message: 'Internal server error',
+      errorCode: 'SERVER_ERROR',
+      error: IS_DEV ? error.message : undefined
     });
   }
 };
@@ -1953,9 +2016,9 @@ exports.updateOrganization = async (req, res, next) => {
 exports.getAllOrganization = async (req, res, next) => {
   try {
 
-    const {userId} = req.params;
+    const { userId } = req.params;
     const [organizarions] = await Promise.all([
-      organizationModel.find({userId : userId}).sort({ _id: 1 }).lean(),
+      organizationModel.find({ userId: userId }).sort({ _id: 1 }).lean(),
     ]);
     return res.status(httpsStatusCode.OK).json({
       success: true,
