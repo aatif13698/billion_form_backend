@@ -20,6 +20,7 @@ const subscribedUserModel = require("../../model/subscribedUser.model");
 const organizationModel = require("../../model/organization.model");
 const multer = require("multer");
 const sessionModel = require("../../model/session.model");
+const customFormModel = require("../../model/customForm.model");
 
 
 const IS_DEV = process.env.NODE_ENV === 'development';
@@ -2192,6 +2193,9 @@ exports.restoreOrganizarion = async (req, res, next) => {
 exports.createSession = async (req, res, next) => {
   try {
     const user = req.user;
+    const company = req.company;
+    // console.log("company", company);
+
     const { organizationId, name, forWhom, isActive, closeDate } = req.body;
     if (!organizationId || !name || !forWhom || !isActive || !closeDate) {
       return res.status(httpsStatusCode.BadRequest).send({
@@ -2206,9 +2210,11 @@ exports.createSession = async (req, res, next) => {
         success: false,
         message: message.lblOrganizationNotFound,
         errorCode: "ORGANIZATION_NOT_FOUND",
-      })
+      });
     }
     const serial = await getSerialNumber("session");
+
+    // Create the session without the link initially
     const newSession = await sessionModel.create({
       serialNumber: serial,
       clientId: user?._id,
@@ -2216,10 +2222,17 @@ exports.createSession = async (req, res, next) => {
       organizationId: organizationId,
       name: name,
       for: forWhom,
-      link: "https://aes.aestree.in/view/organization",
+      link: "123", // Temporary empty link
       isActive: isActive,
-      closeDate: closeDate
-    })
+      closeDate: closeDate,
+    });
+
+    // Update the session with the dynamic link using the session's _id
+    const sessionId = newSession._id;
+    const dynamicLink = `https://${company?.subDomain}.aestree.in/view/organization/${sessionId}`;
+    newSession.link = dynamicLink;
+    await newSession.save();
+
     return res.status(httpsStatusCode.OK).json({
       success: true,
       message: message.lblSessionCreatedSuccess,
@@ -2227,7 +2240,6 @@ exports.createSession = async (req, res, next) => {
     });
   } catch (error) {
     console.error("Session creation error:", error);
-    // Generic server error
     return res.status(httpsStatusCode.InternalServerError).json({
       success: false,
       message: "Internal server error",
@@ -2241,9 +2253,11 @@ exports.createSession = async (req, res, next) => {
 // get all session
 exports.getAllSession = async (req, res, next) => {
   try {
-    const { userId } = req.params;
+    const { userId, organizationId } = req.params;
+    console.log("req.params", req.params);
+
     const [sessions] = await Promise.all([
-      sessionModel.find({ clientId: userId }).sort({ _id: 1 }).lean(),
+      sessionModel.find({ clientId: userId, organizationId: organizationId }).sort({ _id: 1 }).lean(),
     ]);
     return res.status(httpsStatusCode.OK).json({
       success: true,
@@ -2266,3 +2280,129 @@ exports.getAllSession = async (req, res, next) => {
 
 
 // ---------- session controller ends here -------------
+
+
+
+// ---------- Custom form controller starts here -------------
+
+
+exports.createField = async (req, res, next) => {
+  try {
+    const {
+      name,
+      label,
+      type,
+      options,
+      isRequired,
+      placeholder,
+      validation,
+      gridConfig,
+
+      userId,
+      sessionId
+    } = req.body;
+
+
+    console.log("req.body", req.body);
+
+
+
+    // Basic validation
+    if (!name || !label || !type) {
+      return res.status(400).send({ error: 'Name, label, and type are required' });
+    }
+
+    if (!userId || !sessionId) {
+      return res.status(httpsStatusCode.BadRequest).send({
+        success: false,
+        message: message.lblRequiredFieldMissing,
+        errorCode: "FIELD_MISSIING",
+      });
+    }
+    // Check for duplicate field name (optional, depending on your requirements)
+    const existingField = await customFormModel.findOne({ name, userId, sessionId  });
+    if (existingField) {
+      return res.status(400).send({ error: 'A field with this name already exists' });
+    }
+    // Validate gridConfig
+    if (gridConfig) {
+      if (gridConfig.span < 1 || gridConfig.span > 12) {
+        return res.status(400).send({ error: 'Grid span must be between 1 and 12' });
+      }
+      if (typeof gridConfig.order !== 'number') {
+        return res.status(400).send({ error: 'Grid order must be a number' });
+      }
+    }
+    // Validate options for select/multiselect
+    if (['select', 'multiselect'].includes(type) && (!options || !Array.isArray(options) || options.length === 0)) {
+      return res.status(400).send({ error: 'Options are required for select and multiselect types' });
+    }
+    // Validate file type specific fields
+    if (type === 'file') {
+      if (validation && validation.fileTypes && !Array.isArray(validation.fileTypes)) {
+        return res.status(400).send({ error: 'fileTypes must be an array' });
+      }
+      if (validation && validation.maxSize && (typeof validation.maxSize !== 'number' || validation.maxSize <= 0)) {
+        return res.status(400).send({ error: 'maxSize must be a positive number' });
+      }
+    }
+    // Create new custom field
+    const customField = new customFormModel({
+      name,
+      label,
+      type,
+      options: options || [],
+      isRequired: isRequired || false,
+      placeholder,
+      validation: validation || {},
+      gridConfig: gridConfig || { span: 12, order: 0 },
+      createdBy: req.user._id,
+      userId: userId,
+      sessionId: sessionId
+    });
+    // Save to database
+    const savedField = await customField.save();
+    res.status(201).send({
+      message: 'Custom field created successfully',
+      data: savedField
+    });
+  } catch (error) {
+    console.error('Error creating custom field:', error);
+    res.status(500).send({ error: 'Internal server error', details: error.message });
+  }
+};
+
+exports.getAllFields = async (req, res, next) => {
+  try {
+    const { userId, sessionId } = req.params;
+    if (!userId || !sessionId) {
+      return res.status(httpsStatusCode.BadRequest).send({
+        success: false,
+        message: message.lblRequiredFieldMissing,
+        errorCode: "FIELD_MISSIING",
+      });
+    }
+    const [fields] = await Promise.all([
+      customFormModel.find({ userId: userId, sessionId: sessionId }).sort({ _id: 1 }).lean(),
+    ]);
+    return res.status(httpsStatusCode.OK).json({
+      success: true,
+      message: message.lblFieldFoundSuccessfully,
+      data: {
+        data: fields,
+      },
+    });
+  } catch (error) {
+    console.error("Field fetching error:", error);
+    return res.status(httpsStatusCode.InternalServerError).json({
+      success: false,
+      message: "Internal server error",
+      errorCode: "SERVER_ERROR",
+      error: process.env.NODE_ENV === "development" ? error.message : undefined,
+    });
+  }
+};
+
+
+
+// ---------- Custom form controller ends here -------------

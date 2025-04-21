@@ -22,11 +22,12 @@ const customFormSchema = new mongoose.Schema({
     fileTypes: [{ type: String }],
     maxSize: Number
   },
-  createdBy: { type: mongoose.Schema.Types.ObjectId, ref: 'user' },
+  userId: { type: mongoose.Schema.Types.ObjectId, ref: 'user' },
   sessionId: { type: mongoose.Schema.Types.ObjectId, ref: 'session' },
+  createdBy: { type: mongoose.Schema.Types.ObjectId, ref: 'user' },
   createdAt: { type: Date, default: Date.now }
 });
 
-const customFormModel = mongoose.model("customField", customFormSchema);
+const customFormModel = mongoose.model("customForm", customFormSchema);
 
 module.exports = customFormModel;

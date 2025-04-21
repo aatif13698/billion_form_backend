@@ -249,12 +249,22 @@ router.get('/get/organization/:id', superAdminAuth, superAdminController.getIndi
 
 router.post("/create/session", superAdminAuth, superAdminController.createSession);
 
-router.get('/get/session/all/:userId', superAdminAuth, superAdminController.getAllSession);
+router.get('/get/session/all/:userId/:organizationId', superAdminAuth, superAdminController.getAllSession);
+
+// --------- Session route ends here --------------------
+
+
+// --------- Custom Form route starts here ------------------
+
+router.post('/create/field',superAdminAuth, superAdminController.createField)
+
+router.get('/get/field/all/:userId/:sessionId', superAdminAuth, superAdminController.getAllFields);
 
 
 
 
-// --------- Session route ends here ------------------
+// --------- Custom Form route ends here --------------------
+
 
 
 

@@ -149,6 +149,16 @@ module.exports = {
   lblSessionIdrequired: "Session Id id required!",
 
 
+  // field
+  lblFieldNotFound: "Field not found!",
+  lblFieldAlreadyExists: "Field already exists with this name",
+  lblFieldCreatedSuccess: "Field created successfully!",
+  lblFieldUpdatedSuccess: "Field updated successfully!",
+  lblFieldFoundSuccessfully: "Field found successfully!",
+  lblFieldSoftDeletedSuccess: "Field soft deleted successfully!",
+  lblFieldRestoredSuccess: "Field restored succesfully!",
+  lblFieldIdrequired: "Field Id id required!",
+
 
 
 
