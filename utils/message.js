@@ -138,6 +138,16 @@ module.exports = {
   lblOrganizationIdrequired: "Organization Id id required!",
 
 
+  // session
+  lblSessionNotFound: "Session not found!",
+  lblSessionAlreadyExists: "Session already exists with this name",
+  lblSessionCreatedSuccess: "Session created successfully!",
+  lblSessionUpdatedSuccess: "Session updated successfully!",
+  lblSessionFoundSuccessfully: "Session found successfully!",
+  lblSessionSoftDeletedSuccess: "Session soft deleted successfully!",
+  lblSessionRestoredSuccess: "Session restored succesfully!",
+  lblSessionIdrequired: "Session Id id required!",
+
 
 
 

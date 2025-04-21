@@ -60,6 +60,7 @@ app.use("/admin", adminRouter.router);
 
 
 // for local
+app.use("/api/", welcomeRouter.router);
 app.use("/api/auth", authRouter.router);
 app.use("/api/superadmin/administration", superAdminAdministrationhRouter.router);
 app.use("/api/admin", adminRouter.router);

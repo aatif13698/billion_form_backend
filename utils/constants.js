@@ -16,6 +16,7 @@ const serialNumber = [
     { collectionName : "SubscriptionPlan", prefix: "SP"},
     { collectionName : "topup", prefix: "TU"},
     { collectionName : "subscribedUser", prefix: "SU"},
+    { collectionName : "session", prefix: "SE"},
 ]
 
 

@@ -19,6 +19,7 @@ const commonFunction = require("../../utils/commonFunction");
 const subscribedUserModel = require("../../model/subscribedUser.model");
 const organizationModel = require("../../model/organization.model");
 const multer = require("multer");
+const sessionModel = require("../../model/session.model");
 
 
 const IS_DEV = process.env.NODE_ENV === 'development';
@@ -2182,3 +2183,86 @@ exports.restoreOrganizarion = async (req, res, next) => {
 // ---------- Organization controller ends here ----------
 
 
+
+
+// ---------- session controller starts here -------------
+
+
+// create session
+exports.createSession = async (req, res, next) => {
+  try {
+    const user = req.user;
+    const { organizationId, name, forWhom, isActive, closeDate } = req.body;
+    if (!organizationId || !name || !forWhom || !isActive || !closeDate) {
+      return res.status(httpsStatusCode.BadRequest).send({
+        success: false,
+        message: message.lblRequiredFieldMissing,
+        errorCode: "FIELD_MISSIING",
+      });
+    }
+    const org = await organizationModel.findById(organizationId);
+    if (!org) {
+      return res.status(httpsStatusCode.Conflict).send({
+        success: false,
+        message: message.lblOrganizationNotFound,
+        errorCode: "ORGANIZATION_NOT_FOUND",
+      })
+    }
+    const serial = await getSerialNumber("session");
+    const newSession = await sessionModel.create({
+      serialNumber: serial,
+      clientId: user?._id,
+      createdBy: user?._id,
+      organizationId: organizationId,
+      name: name,
+      for: forWhom,
+      link: "https://aes.aestree.in/view/organization",
+      isActive: isActive,
+      closeDate: closeDate
+    })
+    return res.status(httpsStatusCode.OK).json({
+      success: true,
+      message: message.lblSessionCreatedSuccess,
+      data: { session: newSession },
+    });
+  } catch (error) {
+    console.error("Session creation error:", error);
+    // Generic server error
+    return res.status(httpsStatusCode.InternalServerError).json({
+      success: false,
+      message: "Internal server error",
+      errorCode: "SERVER_ERROR",
+      error: process.env.NODE_ENV === "development" ? error.message : undefined,
+    });
+  }
+};
+
+
+// get all session
+exports.getAllSession = async (req, res, next) => {
+  try {
+    const { userId } = req.params;
+    const [sessions] = await Promise.all([
+      sessionModel.find({ clientId: userId }).sort({ _id: 1 }).lean(),
+    ]);
+    return res.status(httpsStatusCode.OK).json({
+      success: true,
+      message: message.lblSessionFoundSuccessfully,
+      data: {
+        data: sessions,
+      },
+    });
+  } catch (error) {
+    console.error("Sessions fetching error:", error);
+    return res.status(httpsStatusCode.InternalServerError).json({
+      success: false,
+      message: "Internal server error",
+      errorCode: "SERVER_ERROR",
+      error: process.env.NODE_ENV === "development" ? error.message : undefined,
+    });
+  }
+};
+
+
+
+// ---------- session controller ends here -------------

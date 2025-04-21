@@ -245,8 +245,20 @@ router.get('/get/organization/:id', superAdminAuth, superAdminController.getIndi
 // --------- Organization routes ends here -------------------
 
 
+// --------- Session route starts here ------------------
+
+router.post("/create/session", superAdminAuth, superAdminController.createSession);
+
+router.get('/get/session/all/:userId', superAdminAuth, superAdminController.getAllSession);
 
 
+
+
+// --------- Session route ends here ------------------
+
+
+
+// --------- custom form route starts here ------------------
 
 
 // Create a new custom field
@@ -336,6 +348,8 @@ router.get('/custom-fields', superAdminAuth, async (req, res) => {
   }
 });
 
+
+// --------- custom form route starts here ------------------
 
 
 exports.router = router;

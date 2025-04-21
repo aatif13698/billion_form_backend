@@ -466,8 +466,8 @@ const getSerialNumber = async (collection) => {
 const generateASerialNumber = async function () {
   try {
     const dataObject = {
-      collectionName: "organization",
-      prefix: "ORG",
+      collectionName: "session",
+      prefix: "SE",
     }
     const isAlreadyExists = await serialNumberModel.findOne({ collectionName: dataObject?.collectionName });
     if (isAlreadyExists) {
