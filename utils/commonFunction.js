@@ -13,6 +13,7 @@ const accessModel = require("../model/access.model");
 const userModel = require("../model/user.model");
 const { log } = require("console");
 const serialNumberModel = require("../model/serialNumber.model");
+const CryptoJS = require("crypto-js")
 
 
 
@@ -502,6 +503,15 @@ const calculateEndDate = function (validityPeriod) {
 
 
 
+// Secret key for encryption (store this securely in .env in production)
+const SECRET_KEY = process.env.ENCRYPTION_KEY || "my-secret-key";
+
+const encryptId = (id) => {
+  const encrypted = CryptoJS.AES.encrypt(id.toString(), SECRET_KEY).toString();
+  // URL-safe encoding
+  return encodeURIComponent(encrypted);
+};
+
 
 
 
@@ -519,5 +529,6 @@ module.exports = {
   generateASerialNumber,
   restrictOtherCompany,
   createAccess,
-  calculateEndDate
+  calculateEndDate,
+  encryptId
 };

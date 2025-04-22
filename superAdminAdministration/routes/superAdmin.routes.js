@@ -6,7 +6,7 @@ const bcrypt = require("bcrypt")
 const router = express.Router();
 const superAdminController = require("../controller/superadmin.controller");
 const { validateLoginInput, startCompanyServer, validateClientInput, getSerialNumber } = require("../../utils/commonFunction");
-const { superAdminAuth } = require("../../middleware/authorization/superAdmin");
+const { superAdminAuth, superAdminAndClientAuth } = require("../../middleware/authorization/superAdmin");
 const customFieldModel = require("../../model/customField.model");
 const companyModel = require("../../model/company.model");
 const userModel = require("../../model/user.model");
@@ -188,7 +188,7 @@ router.get('/get/subscribed/:id', superAdminAuth, superAdminController.getPartic
 // --------- Organization routes starts here -------------------
 
 
-router.post("/create/organization", superAdminAuth, (req, res, next) => {
+router.post("/create/organization", superAdminAndClientAuth, (req, res, next) => {
   uploadImages.fields([
     { name: 'logo', maxCount: 1 },
     { name: 'banner', maxCount: 1 }
@@ -212,7 +212,7 @@ router.post("/create/organization", superAdminAuth, (req, res, next) => {
 }, superAdminController.createOrganization);
 
 
-router.post("/update/organization", superAdminAuth, (req, res, next) => {
+router.post("/update/organization", superAdminAndClientAuth, (req, res, next) => {
   uploadImages.fields([
     { name: 'logo', maxCount: 1 },
     { name: 'banner', maxCount: 1 }
@@ -235,11 +235,11 @@ router.post("/update/organization", superAdminAuth, (req, res, next) => {
   });
 }, superAdminController.updateOrganization);
 
-router.get('/get/organization/all/:userId', superAdminAuth, superAdminController.getAllOrganization);
+router.get('/get/organization/all/:userId', superAdminAndClientAuth, superAdminController.getAllOrganization);
 
-router.post("/activeInactive/organization", superAdminAuth, superAdminController.activeInactiveOrganization);
+router.post("/activeInactive/organization", superAdminAndClientAuth, superAdminController.activeInactiveOrganization);
 
-router.get('/get/organization/:id', superAdminAuth, superAdminController.getIndividualOrganization);
+router.get('/get/organization/:id', superAdminAndClientAuth, superAdminController.getIndividualOrganization);
 
 
 // --------- Organization routes ends here -------------------
@@ -247,9 +247,9 @@ router.get('/get/organization/:id', superAdminAuth, superAdminController.getIndi
 
 // --------- Session route starts here ------------------
 
-router.post("/create/session", superAdminAuth, superAdminController.createSession);
+router.post("/create/session", superAdminAndClientAuth, superAdminController.createSession);
 
-router.get('/get/session/all/:userId/:organizationId', superAdminAuth, superAdminController.getAllSession);
+router.get('/get/session/all/:userId/:organizationId', superAdminAndClientAuth, superAdminController.getAllSession);
 
 // --------- Session route ends here --------------------
 
@@ -257,11 +257,9 @@ router.get('/get/session/all/:userId/:organizationId', superAdminAuth, superAdmi
 
 // --------- Custom Form route starts here ------------------
 
-router.post('/create/field',superAdminAuth, superAdminController.createField)
+router.post('/create/field',superAdminAndClientAuth, superAdminController.createField)
 
-router.get('/get/field/all/:userId/:sessionId', superAdminAuth, superAdminController.getAllFields);
-
-
+router.get('/get/field/all/:userId/:sessionId', superAdminAndClientAuth, superAdminController.getAllFields);
 
 
 // --------- Custom Form route ends here --------------------

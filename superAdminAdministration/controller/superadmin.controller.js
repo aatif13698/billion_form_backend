@@ -2227,9 +2227,12 @@ exports.createSession = async (req, res, next) => {
       closeDate: closeDate,
     });
 
+
     // Update the session with the dynamic link using the session's _id
     const sessionId = newSession._id;
-    const dynamicLink = `https://${company?.subDomain}.aestree.in/view/organization/${sessionId}`;
+    const encryptedId = commonFunction.encryptId(sessionId);
+
+    const dynamicLink = `https://${company?.subDomain}.aestree.in/form/${encryptedId}`;
     newSession.link = dynamicLink;
     await newSession.save();
 
