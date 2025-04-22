@@ -2407,5 +2407,43 @@ exports.getAllFields = async (req, res, next) => {
 };
 
 
+exports.getAllFieldsBySession = async (req, res, next) => {
+  try {
+    const { sessionId } = req.params;
+    if (!sessionId) {
+      return res.status(httpsStatusCode.BadRequest).send({
+        success: false,
+        message: message.lblRequiredFieldMissing,
+        errorCode: "FIELD_MISSIING",
+      });
+    }
+    const [fields] = await Promise.all([
+      customFormModel.find({ sessionId: sessionId }).populate({
+        path : "sessionId",
+        populate : {
+          path : "organizationId"
+        }
+      })
+      .sort({ _id: 1 }).lean(),
+    ]);
+    return res.status(httpsStatusCode.OK).json({
+      success: true,
+      message: message.lblFieldFoundSuccessfully,
+      data: {
+        data: fields,
+      },
+    });
+  } catch (error) {
+    console.error("Field fetching error:", error);
+    return res.status(httpsStatusCode.InternalServerError).json({
+      success: false,
+      message: "Internal server error",
+      errorCode: "SERVER_ERROR",
+      error: process.env.NODE_ENV === "development" ? error.message : undefined,
+    });
+  }
+};
+
+
 
 // ---------- Custom form controller ends here -------------

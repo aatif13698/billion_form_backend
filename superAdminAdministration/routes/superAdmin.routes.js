@@ -261,6 +261,9 @@ router.post('/create/field',superAdminAndClientAuth, superAdminController.create
 
 router.get('/get/field/all/:userId/:sessionId', superAdminAndClientAuth, superAdminController.getAllFields);
 
+router.get('/get/field/bysession/:sessionId', superAdminAndClientAuth, superAdminController.getAllFieldsBySession);
+
+
 
 // --------- Custom Form route ends here --------------------
 
