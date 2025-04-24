@@ -257,7 +257,9 @@ router.get('/get/session/all/:userId/:organizationId', superAdminAndClientAuth, 
 
 // --------- Custom Form route starts here ------------------
 
-router.post('/create/field',superAdminAndClientAuth, superAdminController.createField)
+router.post('/create/field',superAdminAndClientAuth, superAdminController.createField);
+
+router.delete('/delete/field/:userId/:sessionId/:fieldId',superAdminAndClientAuth, superAdminController.deleteField )
 
 router.get('/get/field/all/:userId/:sessionId', superAdminAndClientAuth, superAdminController.getAllFields);
 

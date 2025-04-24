@@ -21,6 +21,7 @@ const organizationModel = require("../../model/organization.model");
 const multer = require("multer");
 const sessionModel = require("../../model/session.model");
 const customFormModel = require("../../model/customForm.model");
+const { default: mongoose } = require("mongoose");
 
 
 const IS_DEV = process.env.NODE_ENV === 'development';
@@ -2328,6 +2329,8 @@ exports.createField = async (req, res, next) => {
       return res.status(400).send({ error: 'A field with this name already exists' });
     }
     // Validate gridConfig
+    let finalGridConfig = { span: 12, order: 1 }; // Default
+
     if (gridConfig) {
       if (gridConfig.span < 1 || gridConfig.span > 12) {
         return res.status(400).send({ error: 'Grid span must be between 1 and 12' });
@@ -2336,6 +2339,13 @@ exports.createField = async (req, res, next) => {
         return res.status(400).send({ error: 'Grid order must be a number' });
       }
     }
+    const maxOrderField = await customFormModel.findOne(
+      { userId, sessionId },
+      { "gridConfig.order": 1 }
+    )
+      .sort({ "gridConfig.order": -1 })
+      .lean();
+    finalGridConfig.order = maxOrderField ? maxOrderField.gridConfig.order + 1 : 1;
     // Validate options for select/multiselect
     if (['select', 'multiselect'].includes(type) && (!options || !Array.isArray(options) || options.length === 0)) {
       return res.status(400).send({ error: 'Options are required for select and multiselect types' });
@@ -2358,7 +2368,7 @@ exports.createField = async (req, res, next) => {
       isRequired: isRequired || false,
       placeholder,
       validation: validation || {},
-      gridConfig: gridConfig || { span: 12, order: 0 },
+      gridConfig: finalGridConfig,
       createdBy: req.user._id,
       userId: userId,
       sessionId: sessionId
@@ -2372,6 +2382,60 @@ exports.createField = async (req, res, next) => {
   } catch (error) {
     console.error('Error creating custom field:', error);
     res.status(500).send({ error: 'Internal server error', details: error.message });
+  }
+};
+
+// delete field
+exports.deleteField = async (req, res, next) => {
+  try {
+    const { userId, sessionId, fieldId } = req.params;
+    if (!userId || !sessionId || !fieldId) {
+      return res.status(httpsStatusCode.BadRequest).json({
+        success: false,
+        message: message.lblRequiredFieldMissing,
+        errorCode: "FIELD_MISSING",
+      });
+    }
+    if (
+      !mongoose.Types.ObjectId.isValid(userId) ||
+      !mongoose.Types.ObjectId.isValid(sessionId) ||
+      !mongoose.Types.ObjectId.isValid(fieldId)
+    ) {
+      return res.status(httpsStatusCode.BadRequest).json({
+        success: false,
+        message: "Invalid ID format",
+        errorCode: "INVALID_ID",
+      });
+    }
+
+    const field = await customFormModel.findOne({
+      _id: fieldId,
+      sessionId: sessionId,
+      userId: userId, 
+    });
+
+    if (!field) {
+      return res.status(httpsStatusCode.NotFound).json({
+        success: false,
+        message: "Field not found",
+        errorCode: "NOT_FOUND",
+      });
+    }
+
+    await customFormModel.deleteOne({ _id: fieldId });
+
+    return res.status(httpsStatusCode.OK).json({
+      success: true,
+      message: "Field deleted successfully",
+    });
+  } catch (error) {
+    console.error("Field deletion error:", error);
+    return res.status(httpsStatusCode.InternalServerError).json({
+      success: false,
+      message: message.lblInternalServerError,
+      errorCode: "SERVER_ERROR",
+      error: process.env.NODE_ENV === "development" ? error.message : undefined,
+    });
   }
 };
 

@@ -22,6 +22,10 @@ const customFormSchema = new mongoose.Schema({
     fileTypes: [{ type: String }],
     maxSize: Number
   },
+  gridConfig:{
+    span : Number,
+    order:  Number
+  },
   userId: { type: mongoose.Schema.Types.ObjectId, ref: 'user' },
   sessionId: { type: mongoose.Schema.Types.ObjectId, ref: 'session' },
   createdBy: { type: mongoose.Schema.Types.ObjectId, ref: 'user' },
