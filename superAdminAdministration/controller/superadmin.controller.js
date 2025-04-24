@@ -2439,6 +2439,89 @@ exports.deleteField = async (req, res, next) => {
   }
 };
 
+exports.updateFieldOrder = async (req, res, next) => {
+  try {
+    const { userId, sessionId } = req.params;
+    const { fields } = req.body;
+
+    if (!userId || !sessionId || !fields || !Array.isArray(fields) || fields.length === 0) {
+      return res.status(httpsStatusCode.BadRequest).json({
+        success: false,
+        message: message?.lblRequiredFieldMissing,
+        errorCode: "FIELD_MISSING",
+      });
+    }
+
+    if (
+      !mongoose.Types.ObjectId.isValid(userId) ||
+      !mongoose.Types.ObjectId.isValid(sessionId) ||
+      !fields.every((f) => mongoose.Types.ObjectId.isValid(f.fieldId))
+    ) {
+      return res.status(httpsStatusCode.BadRequest).json({
+        success: false,
+        message: "Invalid ID format",
+        errorCode: "INVALID_ID",
+      });
+    }
+
+    if (
+      !fields.every((f) => typeof f.order === "number" && f.order >= 1 && Number.isInteger(f.order))
+    ) {
+      return res.status(httpsStatusCode.BadRequest).json({
+        success: false,
+        message: "Invalid fields data",
+        errorCode: "INVALID_FIELDS",
+      });
+    }
+
+    const orders = fields.map((f) => f.order);
+    if (new Set(orders).size !== orders.length) {
+      return res.status(httpsStatusCode.BadRequest).json({
+        success: false,
+        message: ERROR_MESSAGES.DUPLICATE_ORDERS,
+        errorCode: ERROR_CODES.DUPLICATE_ORDERS,
+      });
+    }
+
+    const fieldIds = fields.map((f) => f.fieldId);
+    const existingFields = await customFormModel.find({
+      _id: { $in: fieldIds },
+      userId,
+      sessionId,
+      // createdBy: userId,
+    });
+
+    if (existingFields.length !== fields.length) {
+      return res.status(httpsStatusCode.BadRequest).json({
+        success: false,
+        message: "Some fields do not belong to this user or session",
+        errorCode: "NOT_FOUND",
+      });
+    }
+
+    const updatePromises = fields.map(({ fieldId, order }) =>
+      customFormModel.updateOne(
+        { _id: fieldId, userId, sessionId },
+        { $set: { "gridConfig.order": order } }
+      )
+    );
+    await Promise.all(updatePromises);
+
+    return res.status(httpsStatusCode.OK).json({
+      success: true,
+      message: "Field order updated successfully",
+    });
+  } catch (error) {
+    console.error("Error updating field order:", error);
+    return res.status(httpsStatusCode.InternalServerError).json({
+      success: false,
+      message: message.lblInternalServerError,
+      errorCode: SERVER_ERROR,
+      error: process.env.NODE_ENV === "development" ? error.message : undefined,
+    });
+  }
+};
+
 exports.getAllFields = async (req, res, next) => {
   try {
     const { userId, sessionId } = req.params;

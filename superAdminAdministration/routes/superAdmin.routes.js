@@ -259,7 +259,9 @@ router.get('/get/session/all/:userId/:organizationId', superAdminAndClientAuth, 
 
 router.post('/create/field',superAdminAndClientAuth, superAdminController.createField);
 
-router.delete('/delete/field/:userId/:sessionId/:fieldId',superAdminAndClientAuth, superAdminController.deleteField )
+router.delete('/delete/field/:userId/:sessionId/:fieldId',superAdminAndClientAuth, superAdminController.deleteField );
+
+router.post("/update/order/field/:userId/:sessionId", superAdminAndClientAuth, superAdminController.updateFieldOrder);
 
 router.get('/get/field/all/:userId/:sessionId', superAdminAndClientAuth, superAdminController.getAllFields);
 
