@@ -30,7 +30,7 @@ const customFormSchema = new mongoose.Schema({
   sessionId: { type: mongoose.Schema.Types.ObjectId, ref: 'session' },
   createdBy: { type: mongoose.Schema.Types.ObjectId, ref: 'user' },
   createdAt: { type: Date, default: Date.now }
-});
+}, { timestamps: true });
 
 const customFormModel = mongoose.model("customForm", customFormSchema);
 

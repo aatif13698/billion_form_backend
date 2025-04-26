@@ -22,6 +22,7 @@ const multer = require("multer");
 const sessionModel = require("../../model/session.model");
 const customFormModel = require("../../model/customForm.model");
 const { default: mongoose } = require("mongoose");
+const formDataModel = require("../../model/formData.model");
 
 
 const IS_DEV = process.env.NODE_ENV === 'development';
@@ -2582,6 +2583,173 @@ exports.getAllFieldsBySession = async (req, res, next) => {
     });
   } catch (error) {
     console.error("Field fetching error:", error);
+    return res.status(httpsStatusCode.InternalServerError).json({
+      success: false,
+      message: "Internal server error",
+      errorCode: "SERVER_ERROR",
+      error: process.env.NODE_ENV === "development" ? error.message : undefined,
+    });
+  }
+};
+
+
+// submit form
+exports.submitForm = async (req, res, next) => {
+  try {
+    const { userId, organizationId,  sessionId, phone, firstName  } = req.body;
+    if (!userId || !organizationId || !sessionId) {
+      return res.status(httpsStatusCode.BadRequest).send({
+        success: false,
+        message: message.lblRequiredFieldMissing,
+        errorCode: "FIELD_MISSIING",
+      });
+    }
+    const otherThanFiles = {};
+    const files = [];
+    for (const [key, value] of Object.entries(req.body)) {
+      if (key !== "userId" && key !== "organizationId" && key !== "sessionId") {
+        otherThanFiles[key] = value;
+      }
+    }
+    if (req.files && req.files.length > 0) {
+      req.files.forEach((file) => {
+        files.push({
+          fieldName: file.fieldname,
+          fileUrl: `/public/customForm/${file.filename}`, // Correct path
+          originalName: file.originalname,
+          mimeType: file.mimetype,
+          size: file.size,
+        });
+      });
+    } else {
+      console.log("No files uploaded"); // Debug log
+    }
+    const formData = new formDataModel({
+      phone,
+      firstName,
+      sessionId,
+      userId,
+      organizationId,
+      otherThanFiles: new Map(Object.entries(otherThanFiles || {})),
+      files,
+    });
+    const session = await mongoose.startSession();
+    try {
+      await session.withTransaction(async () => {
+        await formData.save({ session });
+      });
+      await session.endSession();
+    } catch (error) {
+      await session.endSession();
+      if (error.message.includes("A form with this phone, first name, and session")) {
+        return res.status(httpsStatusCode.Conflict).json({
+          success: false,
+          message: "A form with this phone, first name, and session already exists",
+          errorCode: "DUPLICATE_FORM",
+        });
+      }
+      throw error;
+    }
+    return  res.status(httpsStatusCode.OK).json({
+      success: true,
+      message: message.lblFormCreatedSuccess,
+      data: {
+        data: formData,
+      },
+    });
+  } catch (error) {
+    console.error("Form creation error:", error);
+    return res.status(httpsStatusCode.InternalServerError).json({
+      success: false,
+      message: "Internal server error",
+      errorCode: "SERVER_ERROR",
+      error: process.env.NODE_ENV === "development" ? error.message : undefined,
+    });
+  }
+};
+
+// update form
+exports.updateForm = async (req, res, next) => {
+  const session = await mongoose.startSession();
+  try {
+    const { formId } = req.params;
+    const { userId, organizationId,  sessionId, phone, firstName  } = req.body;
+    if (!mongoose.Types.ObjectId.isValid(formId)) {
+      return res.status(httpsStatusCode.BadRequest).json({
+        success: false,
+        message: "Invalid ID format",
+        errorCode: "INVALID_ID",
+      });
+    }
+    if (!userId || !organizationId || !sessionId) {
+      return res.status(httpsStatusCode.BadRequest).send({
+        success: false,
+        message: message.lblRequiredFieldMissing,
+        errorCode: "FIELD_MISSIING",
+      });
+    }
+    if (
+      !mongoose.Types.ObjectId.isValid(userId) ||
+      !mongoose.Types.ObjectId.isValid(organizationId) ||
+      !mongoose.Types.ObjectId.isValid(sessionId)
+    ) {
+      return res.status(httpsStatusCode.BadRequest).json({
+        success: false,
+        message: "Invalid ID format",
+        errorCode: "INVALID_ID",
+      });
+    }
+    const formData = await formDataModel.findById(formId).session(session);
+    if (!formData) {
+      return res.status(httpsStatusCode.NotFound).json({
+        success: false,
+        message: message?.lblFormNotFound,
+        errorCode: "NOT_FOUND",
+      });
+    }
+    const otherThanFiles = {};
+    const files = [];
+    for (const [key, value] of Object.entries(req.body)) {
+      if (key !== "userId" && key !== "organizationId" && key !== "sessionId") {
+        otherThanFiles[key] = value;
+      }
+    }
+    if (req.files && req.files.length > 0) {
+      req.files.forEach((file) => {
+        files.push({
+          fieldName: file.fieldname,
+          fileUrl: `/public/customForm/${file.filename}`, // Correct path
+          originalName: file.originalname,
+          mimeType: file.mimetype,
+          size: file.size,
+        });
+      });
+    } else {
+      console.log("No files uploaded"); // Debug log
+    }
+    
+    formData.phone = phone !== undefined ? phone : formData.phone;
+    formData.firstName = firstName !== undefined ? firstName : formData.firstName;
+    formData.sessionId = sessionId;
+    formData.userId = userId;
+    formData.organizationId = organizationId;
+    formData.otherThanFiles = new Map(Object.entries(otherThanFiles || {}));
+    if (files.length > 0) {
+      formData.files = files; // Replace files array
+    }
+    await session.withTransaction(async () => {
+      await formData.save({ session });
+    });
+    await session.endSession();
+    return  res.status(httpsStatusCode.OK).json({
+      success: true,
+      message: message.lblFormUpdatedSuccess,
+      data: {
+        data: formData,
+      },
+    });
+  } catch (error) {
+    console.error("Form updation error:", error);
     return res.status(httpsStatusCode.InternalServerError).json({
       success: false,
       message: "Internal server error",

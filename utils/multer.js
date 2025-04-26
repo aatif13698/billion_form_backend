@@ -25,6 +25,10 @@ if (!fs.existsSync('./public/images')) {
     fs.mkdirSync('./public/images')
 }
 
+if (!fs.existsSync('./public/customForm')) {
+    fs.mkdirSync('./public/customForm')
+}
+
 
 // image filter
 const imageFilter = (req, file, cb) => {
@@ -33,6 +37,14 @@ const imageFilter = (req, file, cb) => {
         return cb(new Error('Only images are allowed!'), false);
     }
     cb(null, true);
+};
+
+const imageFilters = (req, file, cb) => {
+    const fileTypes = /jpeg|jpg|png|pdf|webp/;
+    const extname = fileTypes.test(path.extname(file.originalname).toLowerCase());
+    const mimetype = fileTypes.test(file.mimetype);
+    if (extname && mimetype) return cb(null, true);
+    cb(new Error("Only images and PDFs are allowed"));
 };
 
 // video filter
@@ -78,7 +90,7 @@ const imagesStorage = multer.diskStorage({
         const uniqueName = `${uuidv4()}${path.extname(file.originalname).toLowerCase()}`;
         cb(null, uniqueName);
     }
-}); 
+});
 
 // Multer upload configuration
 const uploadImages = multer({
@@ -97,8 +109,28 @@ const uploadImages = multer({
         }
         cb(new Error('Only image files (jpg, jpeg, png, gif, webp) are allowed'), false);
     }
-})
+});
+
+
+
+// form submit
+const customFormDetailStorage = multer.diskStorage({
+    destination: (req, file, cb) => {
+        cb(null, "./public/customForm"); // Ensure this folder exists
+    },
+    filename: (req, file, cb) => {
+        console.log("Uploading file:", file); // Debug log
+        cb(null, `${Date.now()}_${file.originalname.toLowerCase().replaceAll(" ", "")}`);
+    },
+});
+
+const uploadCustomForm = multer({
+    storage: customFormDetailStorage, // Use 'storage' key
+    limits: { fileSize: 5 * 1024 * 1024 }, // 5MB limit
+    fileFilter: imageFilters,
+});
 
 
 exports.uploadProfile = uploadProfile;
 exports.uploadImages = uploadImages;
+exports.uploadCustomForm = uploadCustomForm;

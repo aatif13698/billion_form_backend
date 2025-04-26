@@ -12,7 +12,7 @@ const companyModel = require("../../model/company.model");
 const userModel = require("../../model/user.model");
 const accessModel = require("../../model/access.model");
 
-const { uploadImages } = require("../../utils/multer")
+const { uploadImages, uploadCustomForm } = require("../../utils/multer")
 
 const httpsStatusCode = require("../../utils/https-status-code");
 const message = require("../../utils/message");
@@ -266,6 +266,11 @@ router.post("/update/order/field/:userId/:sessionId", superAdminAndClientAuth, s
 router.get('/get/field/all/:userId/:sessionId', superAdminAndClientAuth, superAdminController.getAllFields);
 
 router.get('/get/field/bysession/:sessionId', superAdminController.getAllFieldsBySession);
+
+router.post('/create/form', uploadCustomForm.any(), superAdminController.submitForm);
+
+router.post('/update/form', uploadCustomForm.any(), superAdminController.updateForm);
+
 
 
 

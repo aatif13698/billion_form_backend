@@ -159,6 +159,16 @@ module.exports = {
   lblFieldRestoredSuccess: "Field restored succesfully!",
   lblFieldIdrequired: "Field Id id required!",
 
+  // form
+  lblFormNotFound: "Form not found!",
+  lblFormAlreadyExists: "Form already exists with this name",
+  lblFormCreatedSuccess: "Form created successfully!",
+  lblFormUpdatedSuccess: "Form updated successfully!",
+  lblFormFoundSuccessfully: "Form found successfully!",
+  lblFormSoftDeletedSuccess: "Form soft deleted successfully!",
+  lblFormRestoredSuccess: "Form restored succesfully!",
+  lblFormIdrequired: "Form Id id required!",
+
 
 
 
