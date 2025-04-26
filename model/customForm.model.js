@@ -11,9 +11,9 @@ const customFormSchema = new mongoose.Schema({
     ],
     required: true
   },
-  options: [{ type: String }], 
+  options: [{ type: String }],
   isRequired: { type: Boolean, default: false },
-  placeholder: { type: String }, 
+  placeholder: { type: String },
   validation: {
     regex: String,
     min: Number,
@@ -22,14 +22,15 @@ const customFormSchema = new mongoose.Schema({
     fileTypes: [{ type: String }],
     maxSize: Number
   },
-  gridConfig:{
-    span : Number,
-    order:  Number
+  gridConfig: {
+    span: Number,
+    order: Number
   },
+  isDeleteAble: { type: Boolean, default: true },
   userId: { type: mongoose.Schema.Types.ObjectId, ref: 'user' },
   sessionId: { type: mongoose.Schema.Types.ObjectId, ref: 'session' },
   createdBy: { type: mongoose.Schema.Types.ObjectId, ref: 'user' },
-  createdAt: { type: Date, default: Date.now }
+  // createdAt: { type: Date, default: Date.now }
 }, { timestamps: true });
 
 const customFormModel = mongoose.model("customForm", customFormSchema);

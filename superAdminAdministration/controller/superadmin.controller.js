@@ -2202,7 +2202,7 @@ exports.createSession = async (req, res, next) => {
     if (!organizationId || !name || !forWhom || !isActive || !closeDate) {
       return res.status(httpsStatusCode.BadRequest).send({
         success: false,
-        message: message.lblRequiredFieldMissing,
+        message: message.lblRequiredFieldMissing, 
         errorCode: "FIELD_MISSIING",
       });
     }
@@ -2237,6 +2237,44 @@ exports.createSession = async (req, res, next) => {
     const dynamicLink = `https://${company?.subDomain}.aestree.in/form/${encryptedId}`;
     newSession.link = dynamicLink;
     await newSession.save();
+
+    const fieldArray = [
+      {
+        name : "firstName",
+        label : "First Name",
+        type :  "text",
+        isRequired : true,
+        placeholder : "Enter First Name.",
+        gridConfig : {
+          span : 12,
+          order : 1
+        },
+        isDeleteAble : false,
+        userId : user?._id,
+        sessionId : sessionId,
+        createdBy : user?._id,
+      },
+      {
+        name : "phone",
+        label : "Phone",
+        type :  "number",
+        isRequired : true,
+        placeholder : "Enter Phone Number.",
+        validation : {
+          regex : "^\(?([0-9]{3})\)?[-. ]?([0-9]{3})[-. ]?([0-9]{4})$"
+        },
+        gridConfig : {
+          span : 12,
+          order : 2
+        },
+        isDeleteAble : false,
+        userId : user?._id,
+        sessionId : sessionId,
+        createdBy : user?._id,
+      },
+    ]
+
+     await customFormModel.insertMany(fieldArray)
 
     return res.status(httpsStatusCode.OK).json({
       success: true,
