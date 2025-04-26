@@ -19,6 +19,7 @@ const customFormSchema = new mongoose.Schema({
     min: Number,
     max: Number,
     maxLength: Number,
+    minLength: Number,
     fileTypes: [{ type: String }],
     maxSize: Number
   },
