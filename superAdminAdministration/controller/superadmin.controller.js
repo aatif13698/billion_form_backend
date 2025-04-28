@@ -2645,10 +2645,14 @@ exports.submitForm = async (req, res, next) => {
     const otherThanFiles = {};
     const files = [];
     for (const [key, value] of Object.entries(req.body)) {
-      if (key !== "userId" && key !== "organizationId" && key !== "sessionId") {
+      if (key !== "userId" && key !== "organizationId" && key !== "sessionId" && key !== "phone" && key !== "firstName") {
         otherThanFiles[key] = value;
       }
     }
+
+    // console.log("req.body",req.body);
+    
+
     if (req.files && req.files.length > 0) {
       req.files.forEach((file) => {
         files.push({
