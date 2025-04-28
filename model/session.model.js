@@ -1,6 +1,7 @@
 
 
 require('dotenv').config();
+const bcrypt = require("bcrypt");
 
 
 const mongoose = require("mongoose");
@@ -18,6 +19,8 @@ const sessionSchema = new Schema(
         for: { type: String, required: true },
         link: { type: String, required: true },
         isActive: { type: Boolean, default: false },
+        isPasswordRequired: { type: Boolean, default: false },
+        password: { type: String, default: null },
         closeDate: { type: Date, default: null, index: true },
         formReceived: { type: Number, default: 0 },
 
@@ -26,6 +29,11 @@ const sessionSchema = new Schema(
     { timestamps: true }
 );
 
+
+// Instance method for password verification
+sessionSchema.methods.isPasswordCorrect = async function (password) {
+  return await bcrypt.compare(password, this.password);
+};
 
 const sessionModel = mongoose.model("session", sessionSchema);
 module.exports = sessionModel;

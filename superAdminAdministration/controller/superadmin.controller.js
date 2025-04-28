@@ -2198,11 +2198,14 @@ exports.createSession = async (req, res, next) => {
     const company = req.company;
     // console.log("company", company);
 
-    const { organizationId, name, forWhom, isActive, closeDate } = req.body;
+    const { organizationId, name, forWhom, isActive, closeDate, isPasswordRequired, password } = req.body;
+
+    console.log("req.body",req.body);
+    
     if (!organizationId || !name || !forWhom || !isActive || !closeDate) {
       return res.status(httpsStatusCode.BadRequest).send({
         success: false,
-        message: message.lblRequiredFieldMissing, 
+        message: message.lblRequiredFieldMissing,
         errorCode: "FIELD_MISSIING",
       });
     }
@@ -2216,6 +2219,12 @@ exports.createSession = async (req, res, next) => {
     }
     const serial = await getSerialNumber("session");
 
+    let hash = ""
+
+    if (isPasswordRequired && password) {
+      hash = bcrypt.hashSync(password, 10);
+    }
+
     // Create the session without the link initially
     const newSession = await sessionModel.create({
       serialNumber: serial,
@@ -2226,6 +2235,8 @@ exports.createSession = async (req, res, next) => {
       for: forWhom,
       link: "123", // Temporary empty link
       isActive: isActive,
+      isPasswordRequired: isPasswordRequired ? true : false,
+      password : hash ? hash : null,
       closeDate: closeDate,
     });
 
@@ -2240,41 +2251,41 @@ exports.createSession = async (req, res, next) => {
 
     const fieldArray = [
       {
-        name : "firstName",
-        label : "First Name",
-        type :  "text",
-        isRequired : true,
-        placeholder : "Enter First Name.",
-        gridConfig : {
-          span : 12,
-          order : 1
+        name: "firstName",
+        label: "First Name",
+        type: "text",
+        isRequired: true,
+        placeholder: "Enter First Name.",
+        gridConfig: {
+          span: 12,
+          order: 1
         },
-        isDeleteAble : false,
-        userId : user?._id,
-        sessionId : sessionId,
-        createdBy : user?._id,
+        isDeleteAble: false,
+        userId: user?._id,
+        sessionId: sessionId,
+        createdBy: user?._id,
       },
       {
-        name : "phone",
-        label : "Phone",
-        type :  "number",
-        isRequired : true,
-        placeholder : "Enter Phone Number.",
-        validation : {
-          regex : "^\(?([0-9]{3})\)?[-. ]?([0-9]{3})[-. ]?([0-9]{4})$"
+        name: "phone",
+        label: "Phone",
+        type: "number",
+        isRequired: true,
+        placeholder: "Enter Phone Number.",
+        validation: {
+          regex: "^\\(?([0-9]{3})\\)?[-. ]?([0-9]{3})[-. ]?([0-9]{4})$"
         },
-        gridConfig : {
-          span : 12,
-          order : 2
+        gridConfig: {
+          span: 12,
+          order: 2
         },
-        isDeleteAble : false,
-        userId : user?._id,
-        sessionId : sessionId,
-        createdBy : user?._id,
+        isDeleteAble: false,
+        userId: user?._id,
+        sessionId: sessionId,
+        createdBy: user?._id,
       },
     ]
 
-     await customFormModel.insertMany(fieldArray)
+    await customFormModel.insertMany(fieldArray)
 
     return res.status(httpsStatusCode.OK).json({
       success: true,
@@ -2363,7 +2374,7 @@ exports.createField = async (req, res, next) => {
       });
     }
     // Check for duplicate field name (optional, depending on your requirements)
-    const existingField = await customFormModel.findOne({ name, userId, sessionId  });
+    const existingField = await customFormModel.findOne({ name, userId, sessionId });
     if (existingField) {
       return res.status(400).send({ error: 'A field with this name already exists' });
     }
@@ -2450,7 +2461,7 @@ exports.deleteField = async (req, res, next) => {
     const field = await customFormModel.findOne({
       _id: fieldId,
       sessionId: sessionId,
-      userId: userId, 
+      userId: userId,
     });
 
     if (!field) {
@@ -2603,19 +2614,22 @@ exports.getAllFieldsBySession = async (req, res, next) => {
         errorCode: "FIELD_MISSIING",
       });
     }
+
+    const session = await sessionModel.findById(sessionId)
     const [fields] = await Promise.all([
       customFormModel.find({ sessionId: sessionId }).populate({
-        path : "sessionId",
-        populate : {
-          path : "organizationId"
+        path: "sessionId",
+        populate: {
+          path: "organizationId"
         }
       })
-      .sort({ _id: 1 }).lean(),
+        .sort({ _id: 1 }).lean(),
     ]);
     return res.status(httpsStatusCode.OK).json({
       success: true,
       message: message.lblFieldFoundSuccessfully,
       data: {
+        session:session,
         data: fields,
       },
     });
@@ -2631,10 +2645,58 @@ exports.getAllFieldsBySession = async (req, res, next) => {
 };
 
 
+// check password
+exports.checkPasword = async (req, res, next) => {
+  try {
+    const {
+      sessionId, 
+      password
+    } = req.body;
+
+    if (!sessionId) {
+      return res.status(httpsStatusCode.BadRequest).send({
+        success: false,
+        message: message.lblRequiredFieldMissing,
+        errorCode: "FIELD_MISSIING",
+      });
+    }
+
+    const session = await sessionModel.findById(sessionId);
+
+    if(!session){
+      return res.status(httpsStatusCode.NotFound).send({
+        success: false,
+        message: message.lblSessionNotFound,
+        errorCode: "SESSION_NOT_FOUND",
+      });
+    }
+
+
+    const isPasswordValid = await session.isPasswordCorrect(password);
+    if (!isPasswordValid) {
+      return res.status(401).json({
+        success: false,
+        message: "Password incorrect",
+        errorCode: "AUTH_FAILED",
+      });
+    }
+
+    
+    return  res.status(httpsStatusCode.OK).send({
+      success: true,
+      message: 'Continued successfully',
+    });
+  } catch (error) {
+    console.error('Error checking form password:', error);
+    res.status(500).send({ error: 'Internal server error', details: error.message });
+  }
+};
+
+
 // submit form
 exports.submitForm = async (req, res, next) => {
   try {
-    const { userId, organizationId,  sessionId, phone, firstName  } = req.body;
+    const { userId, organizationId, sessionId, phone, firstName } = req.body;
     if (!userId || !organizationId || !sessionId) {
       return res.status(httpsStatusCode.BadRequest).send({
         success: false,
@@ -2651,7 +2713,6 @@ exports.submitForm = async (req, res, next) => {
     }
 
     // console.log("req.body",req.body);
-    
 
     if (req.files && req.files.length > 0) {
       req.files.forEach((file) => {
@@ -2692,7 +2753,7 @@ exports.submitForm = async (req, res, next) => {
       }
       throw error;
     }
-    return  res.status(httpsStatusCode.OK).json({
+    return res.status(httpsStatusCode.OK).json({
       success: true,
       message: message.lblFormCreatedSuccess,
       data: {
@@ -2715,7 +2776,7 @@ exports.updateForm = async (req, res, next) => {
   const session = await mongoose.startSession();
   try {
     const { formId } = req.params;
-    const { userId, organizationId,  sessionId, phone, firstName  } = req.body;
+    const { userId, organizationId, sessionId, phone, firstName } = req.body;
     if (!mongoose.Types.ObjectId.isValid(formId)) {
       return res.status(httpsStatusCode.BadRequest).json({
         success: false,
@@ -2769,7 +2830,7 @@ exports.updateForm = async (req, res, next) => {
     } else {
       console.log("No files uploaded"); // Debug log
     }
-    
+
     formData.phone = phone !== undefined ? phone : formData.phone;
     formData.firstName = firstName !== undefined ? firstName : formData.firstName;
     formData.sessionId = sessionId;
@@ -2783,7 +2844,7 @@ exports.updateForm = async (req, res, next) => {
       await formData.save({ session });
     });
     await session.endSession();
-    return  res.status(httpsStatusCode.OK).json({
+    return res.status(httpsStatusCode.OK).json({
       success: true,
       message: message.lblFormUpdatedSuccess,
       data: {

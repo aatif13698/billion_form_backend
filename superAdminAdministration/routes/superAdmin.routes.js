@@ -267,6 +267,8 @@ router.get('/get/field/all/:userId/:sessionId', superAdminAndClientAuth, superAd
 
 router.get('/get/field/bysession/:sessionId', superAdminController.getAllFieldsBySession);
 
+router.post('/check/password', superAdminController.checkPasword);
+
 router.post('/create/form', uploadCustomForm.any(), superAdminController.submitForm);
 
 router.post('/update/form', uploadCustomForm.any(), superAdminController.updateForm);
