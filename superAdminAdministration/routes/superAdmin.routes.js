@@ -249,6 +249,10 @@ router.get('/get/organization/:id', superAdminAndClientAuth, superAdminControlle
 
 router.post("/create/session", superAdminAndClientAuth, superAdminController.createSession);
 
+router.post("/update/session", superAdminAndClientAuth, superAdminController.updateSession);
+
+router.post("/activeInactive/session",superAdminAndClientAuth, superAdminController.activeInactiveSession)
+
 router.get('/get/session/all/:userId/:organizationId', superAdminAndClientAuth, superAdminController.getAllSession);
 
 // --------- Session route ends here --------------------

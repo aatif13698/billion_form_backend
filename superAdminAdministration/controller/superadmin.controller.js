@@ -2304,6 +2304,65 @@ exports.createSession = async (req, res, next) => {
 };
 
 
+exports.updateSession = async (req, res, next) => {
+  try {
+    const user = req.user;
+    const company = req.company;
+    const { organizationId, name, forWhom, isActive, closeDate, isPasswordRequired, password, sessionId } = req.body;
+    if(!sessionId){
+      return res.status(httpsStatusCode.BadRequest).send({
+        success: false,
+        message: message.lblSessionIdrequired,
+        errorCode: "SESSION_ID_MISSING",
+      });
+    }
+    if (!organizationId || !name || !forWhom || !isActive || !closeDate) {
+      return res.status(httpsStatusCode.BadRequest).send({
+        success: false,
+        message: message.lblRequiredFieldMissing,
+        errorCode: "FIELD_MISSIING",
+      });
+    }
+    let hash = ""
+    if (isPasswordRequired && password) {
+      hash = bcrypt.hashSync(password, 10);
+    }
+    const session = await sessionModel.findById(sessionId);
+    if(!session){
+      return res.status(httpsStatusCode.NotFound).send({
+        success: false,
+        message: message.lblSessionNotFound,
+        errorCode: "SESSION_NOT_FOUND",
+      });
+    }
+    session.for = forWhom;
+    session.name = name;
+    session.closeDate = closeDate;
+    session.isActive = isActive;
+    session.isPasswordRequired = isPasswordRequired;
+    if(hash){
+      session.password = hash;
+    }
+    await session.save();
+    return res.status(httpsStatusCode.OK).json({
+      success: true,
+      message: message.lblSessionUpdatedSuccess,
+      data: { session: session },
+    });
+  } catch (error) {
+    console.error("Session creation error:", error);
+    return res.status(httpsStatusCode.InternalServerError).json({
+      success: false,
+      message: "Internal server error",
+      errorCode: "SERVER_ERROR",
+      error: process.env.NODE_ENV === "development" ? error.message : undefined,
+    });
+  }
+};
+
+
+
+
 // get all session
 exports.getAllSession = async (req, res, next) => {
   try {
@@ -2322,6 +2381,39 @@ exports.getAllSession = async (req, res, next) => {
     });
   } catch (error) {
     console.error("Sessions fetching error:", error);
+    return res.status(httpsStatusCode.InternalServerError).json({
+      success: false,
+      message: "Internal server error",
+      errorCode: "SERVER_ERROR",
+      error: process.env.NODE_ENV === "development" ? error.message : undefined,
+    });
+  }
+};
+
+// active inactive session
+exports.activeInactiveSession = async (req, res, next) => {
+  try {
+    const { status, sessionId,  } = req.body;
+    if (!sessionId) {
+      return res.status(400).send({
+        message: message.lblSessionIdrequired,
+      });
+    }
+    const session = await sessionModel.findById(sessionId);
+    if (!session) {
+      return res.status(httpsStatusCode.BadRequest).send({
+        message: message.lblSessionNotFound,
+      });
+    }
+    Object.assign(session, {
+      isActive: status === "1",
+    });
+    await session.save();
+    req.params.userId = session.clientId;
+    req.params.organizationId = session.organizationId;
+    this.getAllSession(req, res)
+  } catch (error) {
+    console.error("session active inactive error:", error);
     return res.status(httpsStatusCode.InternalServerError).json({
       success: false,
       message: "Internal server error",
