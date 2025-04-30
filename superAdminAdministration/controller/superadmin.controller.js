@@ -2772,6 +2772,36 @@ exports.getAllFieldsBySession = async (req, res, next) => {
   }
 };
 
+// get form data
+exports.getFormData = async (req, res, next) => {
+  try {
+    const { id } = req.params;
+    if (!id) {
+      return res.status(httpsStatusCode.BadRequest).send({
+        success: false,
+        message: message.lblRequiredFieldMissing,
+        errorCode: "FIELD_MISSIING",
+      });
+    }
+    const formData = await formDataModel.findById(id)
+    return res.status(httpsStatusCode.OK).json({
+      success: true,
+      message: message.lblFormFoundSuccessfully,
+      data: {
+        data: formData,
+      },
+    });
+  } catch (error) {
+    console.error("Field data fetching error:", error);
+    return res.status(httpsStatusCode.InternalServerError).json({
+      success: false,
+      message: "Internal server error",
+      errorCode: "SERVER_ERROR",
+      error: process.env.NODE_ENV === "development" ? error.message : undefined,
+    });
+  }
+};
+
 
 // check password
 exports.checkPasword = async (req, res, next) => {
@@ -2994,6 +3024,48 @@ exports.updateForm = async (req, res, next) => {
       errorCode: "SERVER_ERROR",
       error: process.env.NODE_ENV === "development" ? error.message : undefined,
     });
+  }
+};
+
+
+// login to eidt form
+exports.loginToEditForm = async (req, res, next) => {
+  try {
+    const {
+      serialNumber, 
+      password
+    } = req.body;
+
+    if (!serialNumber) {
+      return res.status(httpsStatusCode.BadRequest).send({
+        success: false,
+        message: "Form ID is missing.",
+        errorCode: "ID_MISSIING",
+      });
+    }
+    const form = await formDataModel.findOne({serialNumber : serialNumber});
+    if(!form){
+      return res.status(httpsStatusCode.NotFound).send({
+        success: false,
+        message: message.lblFormNotFound,
+        errorCode: "FORM_NOT_FOUND",
+      });
+    }
+    if (password !== form.password) {
+      return res.status(401).json({
+        success: false,
+        message: "Password incorrect",
+        errorCode: "AUTH_FAILED",
+      });
+    }
+    return res.status(httpsStatusCode.OK).send({
+      success: true,
+      message: 'Continued successfully',
+      data : form
+    });
+  } catch (error) {
+    console.error('Error checking form password:', error);
+    res.status(500).send({ error: 'Internal server error', details: error.message });
   }
 };
 
