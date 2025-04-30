@@ -2360,7 +2360,43 @@ exports.updateSession = async (req, res, next) => {
   }
 };
 
-
+// delete session
+exports.deleteSession = async (req, res, next) => {
+  try {
+    const { sessionId } = req.body;
+    if(!sessionId){
+      return res.status(httpsStatusCode.BadRequest).send({
+        success: false,
+        message: message.lblSessionIdrequired,
+        errorCode: "SESSION_ID_MISSING",
+      });
+    }
+    const session = await sessionModel.findById(sessionId);
+    if(!session){
+      return res.status(httpsStatusCode.NotFound).send({
+        success: false,
+        message: message.lblSessionNotFound,
+        errorCode: "SESSION_NOT_FOUND",
+      });
+    }
+    await sessionModel.findByIdAndUpdate({_id: sessionId},{
+      deletedAt: new Date()
+    });
+    return res.status(httpsStatusCode.OK).json({
+      success: true,
+      message: message.lblSessionSoftDeletedSuccess,
+      data: { session: session },
+    });
+  } catch (error) {
+    console.error("Session deleting error:", error);
+    return res.status(httpsStatusCode.InternalServerError).json({
+      success: false,
+      message: "Internal server error",
+      errorCode: "SERVER_ERROR",
+      error: process.env.NODE_ENV === "development" ? error.message : undefined,
+    });
+  }
+};
 
 
 // get all session
@@ -2819,7 +2855,14 @@ exports.submitForm = async (req, res, next) => {
     } else {
       console.log("No files uploaded"); // Debug log
     }
+
+    const serialNumber = await getSerialNumber("form");
+    const password = `${firstName.substring(0, 2).toUpperCase()}${phone.substring(0, 3)}`;
+    console.log("password",password);
+    
     const formData = new formDataModel({
+      serialNumber : serialNumber,
+      password : password,
       phone,
       firstName,
       sessionId,

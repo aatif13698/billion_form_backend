@@ -251,7 +251,9 @@ router.post("/create/session", superAdminAndClientAuth, superAdminController.cre
 
 router.post("/update/session", superAdminAndClientAuth, superAdminController.updateSession);
 
-router.post("/activeInactive/session",superAdminAndClientAuth, superAdminController.activeInactiveSession)
+router.delete("/delete/session", superAdminAndClientAuth, superAdminController.deleteSession);
+
+router.post("/activeInactive/session",superAdminAndClientAuth, superAdminController.activeInactiveSession);
 
 router.get('/get/session/all/:userId/:organizationId', superAdminAndClientAuth, superAdminController.getAllSession);
 
