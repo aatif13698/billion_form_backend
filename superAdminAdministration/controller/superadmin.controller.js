@@ -2876,7 +2876,7 @@ exports.submitForm = async (req, res, next) => {
       req.files.forEach((file) => {
         files.push({
           fieldName: file.fieldname,
-          fileUrl: `/public/customForm/${file.filename}`, // Correct path
+          fileUrl: `/customForm/${file.filename}`, // Correct path
           originalName: file.originalname,
           mimeType: file.mimetype,
           size: file.size,
@@ -2986,7 +2986,7 @@ exports.updateForm = async (req, res, next) => {
       req.files.forEach((file) => {
         files.push({
           fieldName: file.fieldname,
-          fileUrl: `/public/customForm/${file.filename}`, // Correct path
+          fileUrl: `/customForm/${file.filename}`, // Correct path
           originalName: file.originalname,
           mimeType: file.mimetype,
           size: file.size,

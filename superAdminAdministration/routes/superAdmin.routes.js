@@ -279,9 +279,9 @@ router.post('/check/password', superAdminController.checkPasword);
 
 router.post('/create/form', uploadCustomForm.any(), superAdminController.submitForm);
 
-router.post('/update/form', uploadCustomForm.any(), superAdminController.updateForm);
+router.post('/update/form/:formId', uploadCustomForm.any(), superAdminController.updateForm);
 
-router.post('/login/form', superAdminController.loginToEditForm )
+router.post('/login/form', superAdminController.loginToEditForm );
 
 
 
