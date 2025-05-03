@@ -2862,6 +2862,36 @@ exports.submitForm = async (req, res, next) => {
         errorCode: "FIELD_MISSIING",
       });
     }
+
+    const formSession = await sessionModel.findById(sessionId);
+    if(!formSession) {
+      return res.status(httpsStatusCode.NotFound).send({
+        success: false,
+        message: message.lblSessionNotFound,
+        errorCode: "SESSION_NOT_FOUND",
+      });
+    }
+
+    const user = await userModel.findById(userId);
+    let subscribed ;
+    if(user.roleId !== 1){
+       subscribed = await subscribedUserModel.findOne({userId : userId });
+      if(!subscribed) {
+        return res.status(httpsStatusCode.NotFound).send({
+          success: false,
+          message: message.lblSubscribedUserNotFound,
+          errorCode: "SUBSCRIBED_NOT_FOUND",
+        });
+      }
+      if(subscribed.totalFormLimit == 0){
+        return res.status(httpsStatusCode.Conflict).send({
+          success: false,
+          message: "Form Limit Exceded.",
+          errorCode: "FORM_LIMIT_EXCEDED",
+        });
+      }
+    }
+
     const otherThanFiles = {};
     const files = [];
     for (const [key, value] of Object.entries(req.body)) {
@@ -2869,8 +2899,6 @@ exports.submitForm = async (req, res, next) => {
         otherThanFiles[key] = value;
       }
     }
-
-    // console.log("req.body",req.body);
 
     if (req.files && req.files.length > 0) {
       req.files.forEach((file) => {
@@ -2888,7 +2916,6 @@ exports.submitForm = async (req, res, next) => {
 
     const serialNumber = await getSerialNumber("form");
     const password = `${firstName.substring(0, 2).toUpperCase()}${phone.substring(0, 3)}`;
-    console.log("password",password);
     
     const formData = new formDataModel({
       serialNumber : serialNumber,
@@ -2918,6 +2945,17 @@ exports.submitForm = async (req, res, next) => {
       }
       throw error;
     }
+
+    formSession.formReceived = formSession.formReceived + 1;
+    formSession.save();
+
+    if(user.roleId !== 1){
+      subscribed.totalFormLimit = subscribed.totalFormLimit - 1;
+      subscribed.save();
+    }
+
+  
+
     return res.status(httpsStatusCode.OK).json({
       success: true,
       message: message.lblFormCreatedSuccess,

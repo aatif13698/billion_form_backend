@@ -35,7 +35,7 @@ const subscribedUserSchema = new Schema(
                 status: { type: String, enum: ['active', 'inactive'], default: 'active' },
                 createdBy: { type: ObjectId, ref: "User", index: true },
                 isPlanExpired : {type: Boolean, default: false}
-            }
+            },
         ],
 
 
