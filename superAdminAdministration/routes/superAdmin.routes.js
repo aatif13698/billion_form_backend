@@ -257,6 +257,8 @@ router.post("/activeInactive/session",superAdminAndClientAuth, superAdminControl
 
 router.get('/get/session/all/:userId/:organizationId', superAdminAndClientAuth, superAdminController.getAllSession);
 
+router.get('/get/session/:sessionId', superAdminAndClientAuth, superAdminController.getSession);
+
 // --------- Session route ends here --------------------
 
 // test
@@ -282,6 +284,9 @@ router.post('/create/form', uploadCustomForm.any(), superAdminController.submitF
 router.post('/update/form/:formId', uploadCustomForm.any(), superAdminController.updateForm);
 
 router.post('/login/form', superAdminController.loginToEditForm );
+
+router.get('/get/all/forms/:sessionId', superAdminController.getAllFormsBySession);
+
 
 
 

@@ -2426,6 +2426,44 @@ exports.getAllSession = async (req, res, next) => {
   }
 };
 
+// get session
+exports.getSession = async (req, res, next) => {
+  try {
+    const { sessionId } = req.params;
+    if(!sessionId){
+      return res.status(httpsStatusCode.Conflict).send({
+        success: false,
+        message: message.lblSessionIdrequired,
+        errorCode: "SESSION_ID_REQUIRED",
+      });
+    }
+    const session = await sessionModel.findById(sessionId).populate("organizationId");
+    if(!session){
+      return res.status(httpsStatusCode.NotFound).send({
+        success: false,
+        message: message.lblSessionNotFound,
+        errorCode: "SESSION_NOT_FOUND",
+      });
+
+    }
+    return res.status(httpsStatusCode.OK).json({
+      success: true,
+      message: message.lblSessionFoundSuccessfully,
+      data: {
+        data: session,
+      },
+    });
+  } catch (error) {
+    console.error("Sessions fetching error:", error);
+    return res.status(httpsStatusCode.InternalServerError).json({
+      success: false,
+      message: "Internal server error",
+      errorCode: "SERVER_ERROR",
+      error: process.env.NODE_ENV === "development" ? error.message : undefined,
+    });
+  }
+};
+
 // active inactive session
 exports.activeInactiveSession = async (req, res, next) => {
   try {
@@ -3104,6 +3142,43 @@ exports.loginToEditForm = async (req, res, next) => {
   } catch (error) {
     console.error('Error checking form password:', error);
     res.status(500).send({ error: 'Internal server error', details: error.message });
+  }
+};
+
+// get all forms by session
+exports.getAllFormsBySession = async (req, res, next) => {
+  try {
+    const { sessionId } = req.params;
+    if (!sessionId) {
+      return res.status(httpsStatusCode.BadRequest).send({
+        success: false,
+        message: message.lblRequiredFieldMissing,
+        errorCode: "FIELD_MISSIING",
+      });
+    }
+    const forms = await formDataModel.find({sessionId : sessionId });
+    if(!forms){
+      return res.status(httpsStatusCode.NotFound).send({
+        success: false,
+        message: message.lblFormNotFound,
+        errorCode: "FORMS_NOT_FOUND",
+      });
+    }
+    return res.status(httpsStatusCode.OK).json({
+      success: true,
+      message: message.lblFormFoundSuccessfully,
+      data: {
+        data: forms,
+      },
+    });
+  } catch (error) {
+    console.error("Field fetching error:", error);
+    return res.status(httpsStatusCode.InternalServerError).json({
+      success: false,
+      message: "Internal server error",
+      errorCode: "SERVER_ERROR",
+      error: process.env.NODE_ENV === "development" ? error.message : undefined,
+    });
   }
 };
 
