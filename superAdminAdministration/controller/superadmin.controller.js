@@ -2200,8 +2200,8 @@ exports.createSession = async (req, res, next) => {
 
     const { organizationId, name, forWhom, isActive, closeDate, isPasswordRequired, password } = req.body;
 
-    console.log("req.body",req.body);
-    
+    console.log("req.body", req.body);
+
     if (!organizationId || !name || !forWhom || !isActive || !closeDate) {
       return res.status(httpsStatusCode.BadRequest).send({
         success: false,
@@ -2236,7 +2236,7 @@ exports.createSession = async (req, res, next) => {
       link: "123", // Temporary empty link
       isActive: isActive,
       isPasswordRequired: isPasswordRequired ? true : false,
-      password : hash ? hash : null,
+      password: hash ? hash : null,
       closeDate: closeDate,
     });
 
@@ -2309,7 +2309,7 @@ exports.updateSession = async (req, res, next) => {
     const user = req.user;
     const company = req.company;
     const { organizationId, name, forWhom, isActive, closeDate, isPasswordRequired, password, sessionId } = req.body;
-    if(!sessionId){
+    if (!sessionId) {
       return res.status(httpsStatusCode.BadRequest).send({
         success: false,
         message: message.lblSessionIdrequired,
@@ -2328,7 +2328,7 @@ exports.updateSession = async (req, res, next) => {
       hash = bcrypt.hashSync(password, 10);
     }
     const session = await sessionModel.findById(sessionId);
-    if(!session){
+    if (!session) {
       return res.status(httpsStatusCode.NotFound).send({
         success: false,
         message: message.lblSessionNotFound,
@@ -2340,7 +2340,7 @@ exports.updateSession = async (req, res, next) => {
     session.closeDate = closeDate;
     session.isActive = isActive;
     session.isPasswordRequired = isPasswordRequired;
-    if(hash){
+    if (hash) {
       session.password = hash;
     }
     await session.save();
@@ -2364,7 +2364,7 @@ exports.updateSession = async (req, res, next) => {
 exports.deleteSession = async (req, res, next) => {
   try {
     const { sessionId } = req.body;
-    if(!sessionId){
+    if (!sessionId) {
       return res.status(httpsStatusCode.BadRequest).send({
         success: false,
         message: message.lblSessionIdrequired,
@@ -2372,14 +2372,14 @@ exports.deleteSession = async (req, res, next) => {
       });
     }
     const session = await sessionModel.findById(sessionId);
-    if(!session){
+    if (!session) {
       return res.status(httpsStatusCode.NotFound).send({
         success: false,
         message: message.lblSessionNotFound,
         errorCode: "SESSION_NOT_FOUND",
       });
     }
-    await sessionModel.findByIdAndUpdate({_id: sessionId},{
+    await sessionModel.findByIdAndUpdate({ _id: sessionId }, {
       deletedAt: new Date()
     });
     return res.status(httpsStatusCode.OK).json({
@@ -2430,7 +2430,7 @@ exports.getAllSession = async (req, res, next) => {
 exports.getSession = async (req, res, next) => {
   try {
     const { sessionId } = req.params;
-    if(!sessionId){
+    if (!sessionId) {
       return res.status(httpsStatusCode.Conflict).send({
         success: false,
         message: message.lblSessionIdrequired,
@@ -2438,7 +2438,7 @@ exports.getSession = async (req, res, next) => {
       });
     }
     const session = await sessionModel.findById(sessionId).populate("organizationId");
-    if(!session){
+    if (!session) {
       return res.status(httpsStatusCode.NotFound).send({
         success: false,
         message: message.lblSessionNotFound,
@@ -2467,7 +2467,7 @@ exports.getSession = async (req, res, next) => {
 // active inactive session
 exports.activeInactiveSession = async (req, res, next) => {
   try {
-    const { status, sessionId,  } = req.body;
+    const { status, sessionId, } = req.body;
     if (!sessionId) {
       return res.status(400).send({
         message: message.lblSessionIdrequired,
@@ -2795,7 +2795,7 @@ exports.getAllFieldsBySession = async (req, res, next) => {
       success: true,
       message: message.lblFieldFoundSuccessfully,
       data: {
-        session:session,
+        session: session,
         data: fields,
       },
     });
@@ -2845,7 +2845,7 @@ exports.getFormData = async (req, res, next) => {
 exports.checkPasword = async (req, res, next) => {
   try {
     const {
-      sessionId, 
+      sessionId,
       password
     } = req.body;
 
@@ -2859,7 +2859,7 @@ exports.checkPasword = async (req, res, next) => {
 
     const session = await sessionModel.findById(sessionId);
 
-    if(!session){
+    if (!session) {
       return res.status(httpsStatusCode.NotFound).send({
         success: false,
         message: message.lblSessionNotFound,
@@ -2877,8 +2877,8 @@ exports.checkPasword = async (req, res, next) => {
       });
     }
 
-    
-    return  res.status(httpsStatusCode.OK).send({
+
+    return res.status(httpsStatusCode.OK).send({
       success: true,
       message: 'Continued successfully',
     });
@@ -2902,7 +2902,7 @@ exports.submitForm = async (req, res, next) => {
     }
 
     const formSession = await sessionModel.findById(sessionId);
-    if(!formSession) {
+    if (!formSession) {
       return res.status(httpsStatusCode.NotFound).send({
         success: false,
         message: message.lblSessionNotFound,
@@ -2911,17 +2911,17 @@ exports.submitForm = async (req, res, next) => {
     }
 
     const user = await userModel.findById(userId);
-    let subscribed ;
-    if(user.roleId !== 1){
-       subscribed = await subscribedUserModel.findOne({userId : userId });
-      if(!subscribed) {
+    let subscribed;
+    if (user.roleId !== 1) {
+      subscribed = await subscribedUserModel.findOne({ userId: userId });
+      if (!subscribed) {
         return res.status(httpsStatusCode.NotFound).send({
           success: false,
           message: message.lblSubscribedUserNotFound,
           errorCode: "SUBSCRIBED_NOT_FOUND",
         });
       }
-      if(subscribed.totalFormLimit == 0){
+      if (subscribed.totalFormLimit == 0) {
         return res.status(httpsStatusCode.Conflict).send({
           success: false,
           message: "Form Limit Exceded.",
@@ -2954,10 +2954,10 @@ exports.submitForm = async (req, res, next) => {
 
     const serialNumber = await getSerialNumber("form");
     const password = `${firstName.substring(0, 2).toUpperCase()}${phone.substring(0, 3)}`;
-    
+
     const formData = new formDataModel({
-      serialNumber : serialNumber,
-      password : password,
+      serialNumber: serialNumber,
+      password: password,
       phone,
       firstName,
       sessionId,
@@ -2987,12 +2987,12 @@ exports.submitForm = async (req, res, next) => {
     formSession.formReceived = formSession.formReceived + 1;
     formSession.save();
 
-    if(user.roleId !== 1){
+    if (user.roleId !== 1) {
       subscribed.totalFormLimit = subscribed.totalFormLimit - 1;
       subscribed.save();
     }
 
-  
+
 
     return res.status(httpsStatusCode.OK).json({
       success: true,
@@ -3053,9 +3053,12 @@ exports.updateForm = async (req, res, next) => {
     }
     const otherThanFiles = {};
     const files = [];
+
     for (const [key, value] of Object.entries(req.body)) {
-      if (key !== "userId" && key !== "organizationId" && key !== "sessionId") {
-        otherThanFiles[key] = value;
+      if (key !== "userId" && key !== "organizationId" && key !== "sessionId" && key !== "phone" && key !== "firstName") {
+        if (typeof value === "string" && !value.startsWith("/customForm/")) {
+          otherThanFiles[key] = value;
+        }
       }
     }
     if (req.files && req.files.length > 0) {
@@ -3108,7 +3111,7 @@ exports.updateForm = async (req, res, next) => {
 exports.loginToEditForm = async (req, res, next) => {
   try {
     const {
-      serialNumber, 
+      serialNumber,
       password
     } = req.body;
 
@@ -3119,8 +3122,8 @@ exports.loginToEditForm = async (req, res, next) => {
         errorCode: "ID_MISSIING",
       });
     }
-    const form = await formDataModel.findOne({serialNumber : serialNumber});
-    if(!form){
+    const form = await formDataModel.findOne({ serialNumber: serialNumber });
+    if (!form) {
       return res.status(httpsStatusCode.NotFound).send({
         success: false,
         message: message.lblFormNotFound,
@@ -3137,7 +3140,7 @@ exports.loginToEditForm = async (req, res, next) => {
     return res.status(httpsStatusCode.OK).send({
       success: true,
       message: 'Continued successfully',
-      data : form
+      data: form
     });
   } catch (error) {
     console.error('Error checking form password:', error);
@@ -3156,8 +3159,8 @@ exports.getAllFormsBySession = async (req, res, next) => {
         errorCode: "FIELD_MISSIING",
       });
     }
-    const forms = await formDataModel.find({sessionId : sessionId });
-    if(!forms){
+    const forms = await formDataModel.find({ sessionId: sessionId });
+    if (!forms) {
       return res.status(httpsStatusCode.NotFound).send({
         success: false,
         message: message.lblFormNotFound,
