@@ -75,7 +75,7 @@ const startServer = async () => {
         await commonFunction.insertRole();
         // await commonFunction.insertSerialNumber()
         await commonFunction.createSuperAdmin();
-        await commonFunction.createAccess()
+        await commonFunction.createAccess();
         // await commonFunction.generateASerialNumber();
         // Start Express server
         server = app.listen(PORT, () => {

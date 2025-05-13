@@ -74,7 +74,7 @@ module.exports = {
 
 
   // Client
-  lblClientNotFound: "Vendor not found!",
+  lblClientNotFound: "Client not found!",
   lblClientAlreadyExists: "Client already exists with this email or phone!",
   lblClientCreatedSuccess: "Client created successfully!",
   lblClientUpdatedSuccess: "Client updated successfully!",
@@ -82,6 +82,17 @@ module.exports = {
   lblClientSoftDeletedSuccess: "Client soft deleted successfully!",
   lblClientRestoredSuccess: "Client restored succesfully!",
   lblClientIdrequired: "Client Id id required!",
+
+  // user
+  lblUserNotFound: "User not found!",
+  lblUserAlreadyExists: "User already exists with this email or phone!",
+  lblUserCreatedSuccess: "User created successfully!",
+  lblUserUpdatedSuccess: "User updated successfully!",
+  lblUserFoundSuccessfully: "User found successfully!",
+  lblUserSoftDeletedSuccess: "User soft deleted successfully!",
+  lblUserRestoredSuccess: "User restored succesfully!",
+  lblUserIdrequired: "User Id id required!",
+  lblUserAssignedSuccess: "User assigned successfully!",
 
 
   // company

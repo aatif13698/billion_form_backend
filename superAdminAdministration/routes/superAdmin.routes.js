@@ -118,6 +118,22 @@ router.get('/get/client/by-status/notsetuped', superAdminAuth, superAdminControl
 router.get('/get/all/client', superAdminAuth, superAdminController.getAllClients);
 
 
+// --------- users routes starts here -------------------
+
+router.route("/create/user").post(validateClientInput, superAdminController.createUser);
+
+router.post('/update/user', superAdminAndClientAuth, superAdminController.updateUser);
+
+router.post("/activeInactive/user", superAdminAndClientAuth, superAdminController.activeInactiveUser);
+
+router.get('/get/user', superAdminAndClientAuth, superAdminController.getUserList);
+
+router.get('/get/all/user/:companyId', superAdminAndClientAuth, superAdminController.getAllUser);
+
+router.post('/assign/user', superAdminAndClientAuth, superAdminController.assignUser);
+
+
+
 
 // --------- company routes ends here -------------------
 

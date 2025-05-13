@@ -23,6 +23,7 @@ const sessionModel = require("../../model/session.model");
 const customFormModel = require("../../model/customForm.model");
 const { default: mongoose } = require("mongoose");
 const formDataModel = require("../../model/formData.model");
+const accessModel = require("../../model/access.model");
 
 
 const IS_DEV = process.env.NODE_ENV === 'development';
@@ -517,6 +518,374 @@ exports.activeInactiveClient = async (req, res, next) => {
 
 
 // ------------- client controller ends here --------------
+
+
+// ------------ user controller starts here ---------------
+
+// create user
+exports.createUser = async (req, res, next) => {
+  try {
+    const company = req.company;
+    if (!company) {
+      return res.status(httpsStatusCode.NotFound).json({
+        success: false,
+        message: message.lblCompanyNotFound || "Company not found",
+        errorCode: "COMPANY_NOT_FOUND",
+      });
+    }
+
+    const access = await accessModel.findOne({ companyId: company._id });
+    if (!access) {
+      return res.status(httpsStatusCode.NotFound).json({
+        success: false,
+        message: "Access not found",
+        errorCode: "ACCESS_NOT_FOUND",
+      });
+    }
+    const { firstName, lastName, email, phone, password } = req.body;
+    // Check if user already exists (using $or for email OR phone)
+    const existingUser = await User.findOne({
+      $or: [{ email: email.toLowerCase() }, { phone }],
+    })
+      .populate("role")
+      .select("+password");
+
+    if (existingUser) {
+      return res.status(httpsStatusCode.Conflict).json({
+        success: false,
+        message: message.lblUserAlreadyExists || "User already exists",
+        errorCode: "USER_EXISTS",
+      });
+    }
+    // Hash the password
+    const saltRounds = 10; // Configurable via environment variable if needed
+    const hashedPassword = await bcrypt.hash(password, saltRounds);
+    const role = await Roles.findOne({ id: 3 });
+    const serial = await getSerialNumber("user");
+    // Create new user
+    const newUser = new User({
+      serialNumber: serial,
+      firstName,
+      lastName,
+      email: email.toLowerCase(),
+      phone,
+      password: hashedPassword,
+      tc: true,
+      roleId: 3,
+      role: role?._id,
+      createdBy: req.user?._id,
+      isCreatedBySuperAdmin: true,
+      isUserVerified: true,
+      companyId: company._id
+    });
+    const savedUser = await newUser.save();
+    access.users = [...access.users, savedUser._id]
+    // Remove sensitive data from response
+    const userResponse = savedUser.toObject();
+    delete userResponse.password;
+    delete userResponse.verificationOtp;
+    delete userResponse.OTP;
+    // Return success response
+    return res.status(httpsStatusCode.Created).json({
+      success: true,
+      message: message.lblSubscribedUserCreatedSuccess,
+      data: {
+        user: userResponse,
+      },
+    });
+  } catch (error) {
+    console.error("User creation error:", error);
+    // Generic server error
+    return res.status(httpsStatusCode.InternalServerError).json({
+      success: false,
+      message: "Internal server error",
+      errorCode: "SERVER_ERROR",
+      error: process.env.NODE_ENV === "development" ? error.message : undefined,
+    });
+  }
+};
+
+// update user
+exports.updateUser = async (req, res, next) => {
+  try {
+    const { clientId, firstName, lastName, email, phone, password } = req.body;
+    const existingUser = await User.findOne({
+      _id: { $ne: clientId },
+      $or: [{ email: email.toLowerCase() }, { phone }],
+    }).populate("role").select("+password");
+    if (existingUser) {
+      return res.status(httpsStatusCode.Conflict).json({
+        success: false,
+        message: message.lblUserAlreadyExists || "User already exists",
+        errorCode: "USER_EXISTS",
+      });
+    }
+    const currentUser = await User.findById(clientId)
+    if (password) {
+      const hashedPassword = await bcrypt.hash(password, 10);
+      currentUser.password = hashedPassword;
+    }
+    currentUser.firstName = firstName;
+    currentUser.lastName = lastName;
+    currentUser.email = email;
+    currentUser.phone = phone;
+    await currentUser.save()
+    return res.status(httpsStatusCode.OK).json({
+      success: true,
+      message: message.lblUserUpdatedSuccess,
+      data: {
+        user: currentUser,
+      },
+    });
+  } catch (error) {
+    console.error("User update error:", error);
+    // Generic server error
+    return res.status(httpsStatusCode.InternalServerError).json({
+      success: false,
+      message: "Internal server error",
+      errorCode: "SERVER_ERROR",
+      error: process.env.NODE_ENV === "development" ? error.message : undefined,
+    });
+  }
+};
+
+// active incactive user
+exports.activeInactiveUser = async (req, res, next) => {
+  try {
+    const { status, clientId, keyword, page, perPage, companyId } = req.body;
+    req.query.keyword = keyword;
+    req.query.page = page;
+    req.query.perPage = perPage;
+    req.query.companyId = companyId;
+    if (!clientId) {
+      return res.status(400).send({
+        message: message.lblClientIdrequired,
+      });
+    }
+    const client = await User.findById(clientId);
+    if (!client) {
+      return res.status(httpsStatusCode.BadRequest).send({
+        message: message.lblClientNotFound,
+      });
+    }
+    Object.assign(client, {
+      isActive: status === "1",
+    });
+    await client.save();
+    this.getUserList(req, res)
+  } catch (error) {
+    console.error("User active inactive error:", error);
+    return res.status(httpsStatusCode.InternalServerError).json({
+      success: false,
+      message: "Internal server error",
+      errorCode: "SERVER_ERROR",
+      error: process.env.NODE_ENV === "development" ? error.message : undefined,
+    });
+  }
+};
+
+// get user list
+exports.getUserList = async (req, res, next) => {
+  try {
+    const { keyword = '', page = 1, perPage = 10, companyId } = req.query;
+    const limit = perPage
+    const skip = (page - 1) * limit;
+
+    let filters = {
+      roleId: 3,
+      companyId: companyId,
+      ...(keyword && {
+        $or: [
+          { firstName: { $regex: keyword.trim(), $options: "i" } },
+          { lastName: { $regex: keyword.trim(), $options: "i" } },
+          { email: { $regex: keyword.trim(), $options: "i" } },
+          { phone: { $regex: keyword.trim(), $options: "i" } },
+          { serialNumber: { $regex: keyword.trim(), $options: "i" } },
+          {
+            $expr: {
+              $regexMatch: {
+                input: { $concat: ["$firstName", " ", "$lastName"] },
+                regex: keyword.trim(),
+                options: "i",
+              },
+            },
+          },
+        ],
+      }),
+    };
+
+    const [clients, total] = await Promise.all([
+      User.find(filters).skip(skip).limit(limit).sort({ _id: -1 })
+        .populate({
+          path: 'companyId',
+          select: 'name',
+        })
+        .populate({
+          path: 'organization',
+          select: 'name'
+        })
+        .select('serialNumber firstName  isActive lastName email phone companyId _id')
+        .lean(),
+      User.countDocuments(filters),
+    ]);
+    return res.status(httpsStatusCode.OK).json({
+      success: true,
+      message: message.lblUserCreatedSuccess,
+      data: {
+        data: clients,
+        total: total
+      },
+    });
+  } catch (error) {
+    console.error("User creation error:", error);
+    return res.status(httpsStatusCode.InternalServerError).json({
+      success: false,
+      message: "Internal server error",
+      errorCode: "SERVER_ERROR",
+      error: process.env.NODE_ENV === "development" ? error.message : undefined,
+    });
+  }
+};
+
+// get all user
+exports.getAllUser = async (req, res, next) => {
+  try {
+    const { companyId } = req.params;
+
+    let filters = {
+      deletedAt: null,
+      isActive: true,
+      roleId: 3,
+      companyId: companyId
+    };
+    const [users] = await Promise.all([
+      User.find(filters).select('firstName lastName serialNumber email phone _id')
+    ]);
+
+    return res.status(httpsStatusCode.OK).json({
+      success: true,
+      message: message.lblUserFoundSuccessfully,
+      data: {
+        user: users,
+      },
+    });
+  } catch (error) {
+    console.error("Users getting error:", error);
+    return res.status(httpsStatusCode.InternalServerError).json({
+      success: false,
+      message: "Internal server error",
+      errorCode: "SERVER_ERROR",
+      error: process.env.NODE_ENV === "development" ? error.message : undefined,
+    });
+  }
+};
+
+// assign user
+exports.assignUser = async (req, res, next) => {
+  try {
+    // Extract and validate input
+    const { email, organizationId } = req.body;
+
+    if (!email) {
+      return res.status(400).json({
+        success: false,
+        message: 'Invalid or missing email.',
+        errorCode: 'INVALID_EMAIL',
+      });
+    }
+
+    if (!organizationId) {
+      return res.status(400).json({
+        success: false,
+        message: 'Invalid or missing organization ID.',
+        errorCode: 'INVALID_ORGANIZATION_ID',
+      });
+    }
+
+    // Find user by email
+    const existingUser = await User.findOne({ email: email.toLowerCase() })
+      .populate('role')
+      .select('+password'); // Include password if needed for other logic
+
+    if (!existingUser) {
+      return res.status(404).json({
+        success: false,
+        message: 'User not found.',
+        errorCode: 'USER_NOT_FOUND',
+      });
+    }
+
+    // Find organization by ID
+    const existingOrganization = await organizationModel.findById(organizationId);
+
+    if (!existingOrganization) {
+      return res.status(404).json({
+        success: false,
+        message: 'Organization not found.',
+        errorCode: 'ORGANIZATION_NOT_FOUND',
+      });
+    }
+
+    // Check for duplicate assignment
+    if (existingOrganization.assignedUser.includes(existingUser._id)) {
+      return res.status(409).json({
+        success: false,
+        message: 'User is already assigned to this organization.',
+        errorCode: 'USER_ALREADY_ASSIGNED',
+      });
+    }
+
+    // Perform updates atomically using a transaction
+    const session = await mongoose.startSession();
+    try {
+      await session.withTransaction(async () => {
+        // Update organization
+        existingOrganization.assignedUser.push(existingUser._id);
+        await existingOrganization.save({ session });
+
+        // Update user
+        existingUser.organization.push(existingOrganization._id);
+        await existingUser.save({ session });
+      });
+
+      // Sanitize response
+      const userResponse = existingUser.toObject();
+      delete userResponse.password;
+      delete userResponse.verificationOtp;
+      delete userResponse.OTP;
+
+      // Return success response
+      return res.status(200).json({
+        success: true,
+        message: 'User assigned to organization successfully.',
+        data: {
+          user: userResponse,
+        },
+      });
+    } catch (error) {
+      throw error; // Let the outer catch handle the error
+    } finally {
+      session.endSession();
+    }
+  } catch (error) {
+    console.error('Error assigning user to organization:', {
+      error: error.message,
+      stack: error.stack,
+      email: req.body.email,
+      organizationId: req.body.organizationId,
+    });
+
+    return res.status(500).json({
+      success: false,
+      message: 'Internal server error.',
+      errorCode: 'SERVER_ERROR',
+      error: process.env.NODE_ENV === 'development' ? error.message : undefined,
+    });
+  }
+};
+
+// ------------ user controller ends here ---------------
+
 
 
 // ------------- company controller starts here --------------
