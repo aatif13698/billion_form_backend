@@ -94,6 +94,17 @@ module.exports = {
   lblUserIdrequired: "User Id id required!",
   lblUserAssignedSuccess: "User assigned successfully!",
 
+  // staff
+  lblStaffNotFound: "Staff not found!",
+  lblStaffAlreadyExists: "Staff already exists with this email or phone!",
+  lblStaffCreatedSuccess: "Staff created successfully!",
+  lblStaffUpdatedSuccess: "Staff updated successfully!",
+  lblStaffFoundSuccessfully: "Staff found successfully!",
+  lblStaffSoftDeletedSuccess: "Staff soft deleted successfully!",
+  lblStaffRestoredSuccess: "Staff restored succesfully!",
+  lblStaffIdrequired: "Staff Id id required!",
+  lblStaffAssignedSuccess: "Staff assigned successfully!",
+
 
   // company
   lblCompanyNotFound: "Company not found!",

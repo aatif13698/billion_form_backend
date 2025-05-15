@@ -73,6 +73,7 @@ const startServer = async () => {
         await connectDb(DATABASE_URL);
         console.log('Database connected successfully');
         await commonFunction.insertRole();
+        // await commonFunction.insertSingleRole();
         // await commonFunction.insertSerialNumber()
         await commonFunction.createSuperAdmin();
         await commonFunction.createAccess();

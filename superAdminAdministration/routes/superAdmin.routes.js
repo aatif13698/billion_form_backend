@@ -118,6 +118,27 @@ router.get('/get/client/by-status/notsetuped', superAdminAuth, superAdminControl
 router.get('/get/all/client', superAdminAuth, superAdminController.getAllClients);
 
 
+// --------- super admin staffs routes starts here -------------------
+
+router.route("/create/superadmin/staff").post(validateClientInput, superAdminController.createStaff);
+
+router.post('/update/superadmin/staff', superAdminAndClientAuth, superAdminController.updateStaff);
+
+router.get('/get/all/superadmin/staff', superAdminAndClientAuth, superAdminController.getStaffList);
+
+router.get('/get/staff/:id', superAdminAuth, superAdminController.getIndividualStaff);
+
+router.post("/activeInactive/superadmin/staff", superAdminAndClientAuth, superAdminController.activeInactiveStaff);
+
+router.delete('/softdelete/superadmin/staff', superAdminAuth, superAdminController.softDeleteStaff);
+
+router.post('/restore/superadmin/staff', superAdminAuth, superAdminController.restoreStaff);
+
+
+
+
+
+
 // --------- users routes starts here -------------------
 
 router.route("/create/user").post(validateClientInput, superAdminController.createUser);
@@ -159,7 +180,7 @@ router.post('/restore/subscription', superAdminAuth, superAdminController.restor
 
 
 
-// --------- subscription routes ends here -------------------
+// --------- subscription routes ends here ------------------- 
 
 
 // --------- topup routes starts here ---------

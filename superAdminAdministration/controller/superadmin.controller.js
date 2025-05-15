@@ -520,6 +520,343 @@ exports.activeInactiveClient = async (req, res, next) => {
 // ------------- client controller ends here --------------
 
 
+// ------------- super admin staff controller starts here ----------
+
+// create staff
+exports.createStaff = async (req, res, next) => {
+  try {
+    const company = req.company;
+    if (!company) {
+      return res.status(httpsStatusCode.NotFound).json({
+        success: false,
+        message: message.lblCompanyNotFound || "Company not found",
+        errorCode: "COMPANY_NOT_FOUND",
+      });
+    }
+
+    const access = await accessModel.findOne({ companyId: company._id });
+    if (!access) {
+      return res.status(httpsStatusCode.NotFound).json({
+        success: false,
+        message: "Access not found",
+        errorCode: "ACCESS_NOT_FOUND",
+      });
+    }
+    const { firstName, lastName, email, phone, password } = req.body;
+    // Check if user already exists (using $or for email OR phone)
+    const existingUser = await User.findOne({
+      $or: [{ email: email.toLowerCase() }, { phone }],
+    })
+      .populate("role")
+      .select("+password");
+
+    if (existingUser) {
+      return res.status(httpsStatusCode.Conflict).json({
+        success: false,
+        message: message.lblStaffAlreadyExists || "Staff already exists",
+        errorCode: "STAFF_EXISTS",
+      });
+    }
+    // Hash the password
+    const saltRounds = 10; // Configurable via environment variable if needed
+    const hashedPassword = await bcrypt.hash(password, saltRounds);
+    const role = await Roles.findOne({ id: 4 });
+    const serial = await getSerialNumber("superAdminStaff");
+    // Create new user
+    const newUser = new User({
+      serialNumber: serial,
+      firstName,
+      lastName,
+      email: email.toLowerCase(),
+      phone,
+      password: hashedPassword,
+      tc: true,
+      roleId: 4,
+      role: role?._id,
+      createdBy: req.user?._id,
+      isCreatedBySuperAdmin: true,
+      isUserVerified: true,
+      companyId: company._id
+    });
+    const savedUser = await newUser.save();
+    access.users = [...access.users, savedUser._id];
+
+    await access.save()
+    // Remove sensitive data from response
+    const userResponse = savedUser.toObject();
+    delete userResponse.password;
+    delete userResponse.verificationOtp;
+    delete userResponse.OTP;
+    // Return success response
+    return res.status(httpsStatusCode.Created).json({
+      success: true,
+      message: message.lblStaffCreatedSuccess,
+      data: {
+        user: userResponse,
+      },
+    });
+  } catch (error) {
+    console.error("User creation error:", error);
+    // Generic server error
+    return res.status(httpsStatusCode.InternalServerError).json({
+      success: false,
+      message: "Internal server error",
+      errorCode: "SERVER_ERROR",
+      error: process.env.NODE_ENV === "development" ? error.message : undefined,
+    });
+  }
+};
+
+// update staff 
+exports.updateStaff = async (req, res, next) => {
+  try {
+    const { clientId, firstName, lastName, email, phone, password } = req.body;
+    const existingUser = await User.findOne({
+      _id: { $ne: clientId },
+      $or: [{ email: email.toLowerCase() }, { phone }],
+    }).populate("role").select("+password");
+    if (existingUser) {
+      return res.status(httpsStatusCode.Conflict).json({
+        success: false,
+        message: message.lblStaffAlreadyExists || "Staff already exists",
+        errorCode: "STAFF_EXISTS",
+      });
+    }
+    const currentUser = await User.findById(clientId)
+    if (password) {
+      const hashedPassword = await bcrypt.hash(password, 10);
+      currentUser.password = hashedPassword;
+    }
+    currentUser.firstName = firstName;
+    currentUser.lastName = lastName;
+    currentUser.email = email;
+    currentUser.phone = phone;
+    await currentUser.save()
+    return res.status(httpsStatusCode.OK).json({
+      success: true,
+      message: message.lblStaffUpdatedSuccess,
+      data: {
+        user: currentUser,
+      },
+    });
+  } catch (error) {
+    console.error("Staff update error:", error);
+    // Generic server error
+    return res.status(httpsStatusCode.InternalServerError).json({
+      success: false,
+      message: "Internal server error",
+      errorCode: "SERVER_ERROR",
+      error: process.env.NODE_ENV === "development" ? error.message : undefined,
+    });
+  }
+};
+
+// staff list
+exports.getStaffList = async (req, res, next) => {
+  try {
+    const { keyword = '', page = 1, perPage = 10, companyId } = req.query;
+
+    console.log("req.query",req.query);
+    
+    const limit = perPage
+    const skip = (page - 1) * limit;
+
+    let filters = {
+      roleId: 4,
+      companyId: companyId,
+      ...(keyword && {
+        $or: [
+          { firstName: { $regex: keyword.trim(), $options: "i" } },
+          { lastName: { $regex: keyword.trim(), $options: "i" } },
+          { email: { $regex: keyword.trim(), $options: "i" } },
+          { phone: { $regex: keyword.trim(), $options: "i" } },
+          { serialNumber: { $regex: keyword.trim(), $options: "i" } },
+          {
+            $expr: {
+              $regexMatch: {
+                input: { $concat: ["$firstName", " ", "$lastName"] },
+                regex: keyword.trim(),
+                options: "i",
+              },
+            },
+          },
+        ],
+      }),
+    };
+
+    const [clients, total] = await Promise.all([
+      User.find(filters).skip(skip).limit(limit).sort({ _id: -1 })
+        .populate({
+          path: 'companyId',
+          select: 'name',
+        })
+        .populate({
+          path: 'organization',
+          select: 'name'
+        })
+        .select('serialNumber firstName deletedAt isActive lastName email phone companyId _id')
+        .lean(),
+      User.countDocuments(filters),
+    ]);
+    return res.status(httpsStatusCode.OK).json({
+      success: true,
+      message: message.lblStaffFoundSuccessfully,
+      data: {
+        data: clients,
+        total: total
+      },
+    });
+  } catch (error) {
+    console.error("Staff creation error:", error);
+    return res.status(httpsStatusCode.InternalServerError).json({
+      success: false,
+      message: "Internal server error",
+      errorCode: "SERVER_ERROR",
+      error: process.env.NODE_ENV === "development" ? error.message : undefined,
+    });
+  }
+};
+
+// get particular staff
+exports.getIndividualStaff = async (req, res, next) => {
+  try {
+    const { id } = req.params;
+    const [user] = await Promise.all([
+      userModel.findById(id).lean()
+    ]);
+    if (!user) {
+      return res.status(httpsStatusCode.NotFound).json({
+        success: false,
+        message: message.lblStaffNotFound,
+      });
+    };
+
+    return res.status(httpsStatusCode.OK).json({
+      success: true,
+      message: message.lblStaffFoundSuccessfully,
+      data: {
+        data: user,
+      },
+    });
+  } catch (error) {
+    console.error("Staff fetching error:", error);
+    return res.status(httpsStatusCode.InternalServerError).json({
+      success: false,
+      message: "Internal server error",
+      errorCode: "SERVER_ERROR",
+      error: process.env.NODE_ENV === "development" ? error.message : undefined,
+    });
+  }
+};
+
+// active inactive staff
+exports.activeInactiveStaff = async (req, res, next) => {
+  try {
+    const { status, clientId, keyword, page, perPage, companyId } = req.body;
+    req.query.keyword = keyword;
+    req.query.page = page;
+    req.query.perPage = perPage;
+    req.query.companyId = companyId;
+    if (!clientId) {
+      return res.status(400).send({
+        message: message.lblStaffIdrequired,
+      });
+    }
+    const client = await User.findById(clientId);
+    if (!client) {
+      return res.status(httpsStatusCode.BadRequest).send({
+        message: message.lblStaffNotFound,
+      });
+    }
+    Object.assign(client, {
+      isActive: status === "1",
+    });
+    await client.save();
+    this.getStaffList(req, res)
+  } catch (error) {
+    console.error("Staff active inactive error:", error);
+    return res.status(httpsStatusCode.InternalServerError).json({
+      success: false,
+      message: "Internal server error",
+      errorCode: "SERVER_ERROR",
+      error: process.env.NODE_ENV === "development" ? error.message : undefined,
+    });
+  }
+};
+
+exports.softDeleteStaff = async (req, res, next) => {
+  try {
+    const { clientId, keyword, page, perPage, companyId } = req.body;
+    req.query.keyword = keyword;
+    req.query.page = page;
+    req.query.perPage = perPage;
+    req.query.companyId = companyId;
+    if (!clientId) {
+      return res.status(httpsStatusCode.BadRequest).send({
+        message: message.lblClientIdrequired,
+      });
+    }
+    const client = await userModel.findById(clientId);
+    if (!client) {
+      return res.status(httpsStatusCode.NotFound).send({
+        message: message.lblStaffNotFound,
+      });
+    }
+    Object.assign(client, {
+      deletedAt: new Date(),
+    });
+    await client.save();
+    this.getStaffList(req, res)
+  } catch (error) {
+    console.error("staff soft delete error:", error);
+    return res.status(httpsStatusCode.InternalServerError).json({
+      success: false,
+      message: "Internal server error",
+      errorCode: "SERVER_ERROR",
+      error: process.env.NODE_ENV === "development" ? error.message : undefined,
+    });
+  }
+};
+
+exports.restoreStaff = async (req, res, next) => {
+  try {
+    const { clientId, keyword, page, perPage, companyId } = req.body;
+    req.query.keyword = keyword;
+    req.query.page = page;
+    req.query.perPage = perPage;
+    req.query.companyId = companyId;
+    if (!clientId) {
+      return res.status(httpsStatusCode.BadRequest).send({
+        message: message.lblStaffIdrequired,
+      });
+    }
+    const client = await userModel.findById(clientId);
+    if (!client) {
+      return res.status(httpsStatusCode.NotFound).send({
+        message: message.lblStaffNotFound,
+      });
+    }
+    Object.assign(client, {
+      deletedAt: null,
+    });
+    await client.save();
+    this.getStaffList(req, res)
+  } catch (error) {
+    console.error("Staff restore error:", error);
+    return res.status(httpsStatusCode.InternalServerError).json({
+      success: false,
+      message: "Internal server error",
+      errorCode: "SERVER_ERROR",
+      error: process.env.NODE_ENV === "development" ? error.message : undefined,
+    });
+  }
+};
+
+
+// ------------- super admin staff controller ends here ----------
+
+
+
 // ------------ user controller starts here ---------------
 
 // create user
@@ -579,7 +916,9 @@ exports.createUser = async (req, res, next) => {
       companyId: company._id
     });
     const savedUser = await newUser.save();
-    access.users = [...access.users, savedUser._id]
+    access.users = [...access.users, savedUser._id];
+
+    await access.save()
     // Remove sensitive data from response
     const userResponse = savedUser.toObject();
     delete userResponse.password;
@@ -2389,15 +2728,33 @@ exports.updateOrganization = async (req, res) => {
 exports.getAllOrganization = async (req, res, next) => {
   try {
 
+    const user = req.user;
     const { userId } = req.params;
-    const [organizarions] = await Promise.all([
-      organizationModel.find({ userId: userId }).sort({ _id: 1 }).lean(),
-    ]);
+
+    console.log("user", user);
+
+    let listOrganization = []
+
+    if (user.roleId < 3) {
+      const [organizarions] = await Promise.all([
+        organizationModel.find({ userId: userId }).sort({ _id: 1 }).lean(),
+      ]);
+      listOrganization = organizarions;
+    } else if (user.roleId == 3) {
+      const [organizarions] = await Promise.all([
+        organizationModel.find({ assignedUser: { $in: user._id }, deletedAt: null }).sort({ _id: 1 }).lean(),
+      ]);
+      listOrganization = organizarions;
+    }
+
+
+
+
     return res.status(httpsStatusCode.OK).json({
       success: true,
       message: message.lblOrganizationFoundSuccessfully,
       data: {
-        data: organizarions,
+        data: listOrganization,
       },
     });
   } catch (error) {

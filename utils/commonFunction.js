@@ -39,6 +39,27 @@ async function insertRole() {
     .finally(() => { });
 }
 
+
+async function insertSingleRole() {
+  try {
+    const roleName = "superAdminStaff";
+    const roleId = 4;
+    const existingRole = await Roles.findOne({name: roleName, id: roleId});
+    if(existingRole){
+      console.log(`${roleName} role already exists.`);
+      return 
+    }
+
+    const newRole = await Roles.create({
+      id: roleId,
+      name: roleName
+    });
+    console.log(`${roleName} created successfully.`);
+  } catch (error) {
+    console.log("error while inserting single role", error);
+  }
+}
+
 async function insertSerialNumber() {
   SerialNumber.countDocuments({})
     .exec()
@@ -322,6 +343,9 @@ const restrictOtherCompany = async (req, res, next) => {
       })
 
     }
+
+    console.log("access",access);
+    
     const { identifier } = req.body;
     const identifierType = req.identifierType;
     const query = identifierType === "email"
@@ -330,6 +354,9 @@ const restrictOtherCompany = async (req, res, next) => {
     const user = await User.findOne(query)
       .populate("role")
       .select("_id email phone");
+
+      console.log("user",user);
+      
 
     const findUserAccess = access.users.filter((item) => {
       return item?._id?.toString() === user._id.toString();
@@ -467,8 +494,8 @@ const getSerialNumber = async (collection) => {
 const generateASerialNumber = async function () {
   try {
     const dataObject = {
-      collectionName: "user",
-      prefix: "UR",
+      collectionName: "superAdminStaff",
+      prefix: "SAS",
     }
     const isAlreadyExists = await serialNumberModel.findOne({ collectionName: dataObject?.collectionName });
     if (isAlreadyExists) {
@@ -530,5 +557,6 @@ module.exports = {
   restrictOtherCompany,
   createAccess,
   calculateEndDate,
-  encryptId
+  encryptId,
+  insertSingleRole
 };

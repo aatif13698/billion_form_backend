@@ -123,7 +123,7 @@ exports.superAdminAndClientAuth = async (req, res, next) => {
     }
 
     // Check if user is a super admin (roleId <= 1)
-    if (user.roleId > 2) {
+    if (user.roleId > 3) {
       return res.status(statusCode.Forbidden).json({
         message: message.lblUnauthorizeUser || "Access denied",
       });
