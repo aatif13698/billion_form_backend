@@ -265,7 +265,6 @@ exports.updateClient = async (req, res, next) => {
 // get client
 exports.getClients = async (req, res, next) => {
   try {
-    console.log("1111");
 
     let filters = {
       // deletedAt: null,
@@ -275,9 +274,6 @@ exports.getClients = async (req, res, next) => {
     const [clients] = await Promise.all([
       User.find(filters)
     ]);
-
-    console.log("2222", clients);
-
 
     return res.status(httpsStatusCode.OK).json({
       success: true,
@@ -2526,6 +2522,26 @@ exports.createOrganization = async (req, res) => {
       });
     }
 
+
+     let subscribed;
+    if (user.roleId !== 1) {
+      subscribed = await subscribedUserModel.findOne({ userId: user._id });
+      if (!subscribed) {
+        return res.status(httpsStatusCode.NotFound).send({
+          success: false,
+          message: message.lblSubscribedUserNotFound,
+          errorCode: "SUBSCRIBED_NOT_FOUND",
+        });
+      }
+      if (subscribed.totalOrgLimit == 0) {
+        return res.status(httpsStatusCode.Conflict).send({
+          success: false,
+          message: "Organization Limit Exceded.",
+          errorCode: "ORGANIZATION_LIMIT_EXCEDED",
+        });
+      }
+    }
+
     // Handle uploaded files
     let logoPath = null;
     let bannerPath = null;
@@ -2555,6 +2571,11 @@ exports.createOrganization = async (req, res) => {
       banner: bannerPath,
       isActive: true
     });
+
+    if (user.roleId !== 1) {
+      subscribed.totalOrgLimit = subscribed.totalOrgLimit - 1;
+      subscribed.save();
+    }
 
     // Return success response
     return res.status(201).json({
