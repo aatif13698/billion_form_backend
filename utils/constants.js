@@ -20,6 +20,7 @@ const serialNumber = [
     { collectionName : "session", prefix: "SE"},
     { collectionName : "form", prefix: "FM"},
     { collectionName : "user", prefix: "UR"},
+    { collectionName : "superAdminStaff", prefix: "SAS"},
 ]
 
 

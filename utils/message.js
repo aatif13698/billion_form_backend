@@ -139,7 +139,7 @@ module.exports = {
 
 
   // subscribed user
-  lblSubscribedUserNotFound: "SubscribedUser not found!",
+  lblSubscribedUserNotFound: "Subscribed User not found!",
   lblSubscribedUserAlreadyExists: "SubscribedUser already exists with this name",
   lblSubscribedUserCreatedSuccess: "SubscribedUser created successfully!",
   lblSubscribedUserUpdatedSuccess: "SubscribedUser updated successfully!",
