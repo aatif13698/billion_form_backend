@@ -12,15 +12,17 @@ const roles = [
 
 
 const serialNumber = [
-    { collectionName : "client", prefix: "CL"},
-    { collectionName : "company", prefix: "CO"},
-    { collectionName : "SubscriptionPlan", prefix: "SP"},
-    { collectionName : "topup", prefix: "TU"},
-    { collectionName : "subscribedUser", prefix: "SU"},
-    { collectionName : "session", prefix: "SE"},
-    { collectionName : "form", prefix: "FM"},
-    { collectionName : "user", prefix: "UR"},
-    { collectionName : "superAdminStaff", prefix: "SAS"},
+    { collectionName: "client", prefix: "CL" },
+    { collectionName: "company", prefix: "CO" },
+    { collectionName: "SubscriptionPlan", prefix: "SP" },
+    { collectionName: "topup", prefix: "TU" },
+    { collectionName: "subscribedUser", prefix: "SU" },
+    { collectionName: "organization", prefix: "ORG" },
+    { collectionName: "session", prefix: "SE" },
+    { collectionName: "form", prefix: "FM" },
+    { collectionName: "user", prefix: "UR" },
+    { collectionName: "superAdminStaff", prefix: "SAS" },
+    { collectionName: "fileSerialNumber", prefix: "FSN" },
 ]
 
 

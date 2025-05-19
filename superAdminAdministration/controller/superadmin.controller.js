@@ -24,6 +24,25 @@ const customFormModel = require("../../model/customForm.model");
 const { default: mongoose } = require("mongoose");
 const formDataModel = require("../../model/formData.model");
 const accessModel = require("../../model/access.model");
+const AWS = require('aws-sdk');
+
+
+
+// DigitalOcean Spaces setup
+const spacesEndpoint = new AWS.Endpoint(process.env.DO_SPACES_ENDPOINT);
+const s3 = new AWS.S3({
+  endpoint: spacesEndpoint,
+  accessKeyId: process.env.DO_SPACES_KEY,
+  secretAccessKey: process.env.DO_SPACES_SECRET,
+});
+
+
+// code to convert private to public
+// s3.putObjectAcl({
+//   Bucket: 'billionforms-files',
+//   Key: '6826d702e17871353e5345eb/68281c03b51fad15219f91e0/1747472015712_heart.png',
+//   ACL: 'public-read',
+// }).promise().then(() => console.log('Updated ACL to public-read'));
 
 
 const IS_DEV = process.env.NODE_ENV === 'development';
@@ -652,8 +671,8 @@ exports.getStaffList = async (req, res, next) => {
   try {
     const { keyword = '', page = 1, perPage = 10, companyId } = req.query;
 
-    console.log("req.query",req.query);
-    
+    console.log("req.query", req.query);
+
     const limit = perPage
     const skip = (page - 1) * limit;
 
@@ -2523,7 +2542,7 @@ exports.createOrganization = async (req, res) => {
     }
 
 
-     let subscribed;
+    let subscribed;
     if (user.roleId !== 1) {
       subscribed = await subscribedUserModel.findOne({ userId: user._id });
       if (!subscribed) {
@@ -3636,7 +3655,132 @@ exports.checkPasword = async (req, res, next) => {
 };
 
 
-// submit form
+// submit form old
+// exports.submitForm = async (req, res, next) => {
+//   try {
+//     const { userId, organizationId, sessionId, phone, firstName } = req.body;
+//     if (!userId || !organizationId || !sessionId) {
+//       return res.status(httpsStatusCode.BadRequest).send({
+//         success: false,
+//         message: message.lblRequiredFieldMissing,
+//         errorCode: "FIELD_MISSIING",
+//       });
+//     }
+
+//     const formSession = await sessionModel.findById(sessionId);
+//     if (!formSession) {
+//       return res.status(httpsStatusCode.NotFound).send({
+//         success: false,
+//         message: message.lblSessionNotFound,
+//         errorCode: "SESSION_NOT_FOUND",
+//       });
+//     }
+
+//     const user = await userModel.findById(userId);
+//     let subscribed;
+//     if (user.roleId !== 1) {
+//       subscribed = await subscribedUserModel.findOne({ userId: userId });
+//       if (!subscribed) {
+//         return res.status(httpsStatusCode.NotFound).send({
+//           success: false,
+//           message: message.lblSubscribedUserNotFound,
+//           errorCode: "SUBSCRIBED_NOT_FOUND",
+//         });
+//       }
+//       if (subscribed.totalFormLimit == 0) {
+//         return res.status(httpsStatusCode.Conflict).send({
+//           success: false,
+//           message: "Form Limit Exceded.",
+//           errorCode: "FORM_LIMIT_EXCEDED",
+//         });
+//       }
+//     }
+
+//     const otherThanFiles = {};
+//     const files = [];
+//     for (const [key, value] of Object.entries(req.body)) {
+//       if (key !== "userId" && key !== "organizationId" && key !== "sessionId" && key !== "phone" && key !== "firstName") {
+//         otherThanFiles[key] = value;
+//       }
+//     }
+
+//     if (req.files && req.files.length > 0) {
+//       req.files.forEach((file) => {
+//         files.push({
+//           fieldName: file.fieldname,
+//           fileUrl: `/customForm/${file.filename}`, // Correct path
+//           originalName: file.originalname,
+//           mimeType: file.mimetype,
+//           size: file.size,
+//         });
+//       });
+//     } else {
+//       console.log("No files uploaded"); // Debug log
+//     }
+
+//     const serialNumber = await getSerialNumber("form");
+//     const password = `${firstName.substring(0, 2).toUpperCase()}${phone.substring(0, 3)}`;
+
+//     const formData = new formDataModel({
+//       serialNumber: serialNumber,
+//       password: password,
+//       phone,
+//       firstName,
+//       sessionId,
+//       userId,
+//       organizationId,
+//       otherThanFiles: new Map(Object.entries(otherThanFiles || {})),
+//       files,
+//     });
+//     const session = await mongoose.startSession();
+//     try {
+//       await session.withTransaction(async () => {
+//         await formData.save({ session });
+//       });
+//       await session.endSession();
+//     } catch (error) {
+//       await session.endSession();
+//       if (error.message.includes("A form with this phone, first name, and session")) {
+//         return res.status(httpsStatusCode.Conflict).json({
+//           success: false,
+//           message: "A form with this phone, first name, and session already exists",
+//           errorCode: "DUPLICATE_FORM",
+//         });
+//       }
+//       throw error;
+//     }
+
+//     formSession.formReceived = formSession.formReceived + 1;
+//     formSession.save();
+
+//     if (user.roleId !== 1) {
+//       subscribed.totalFormLimit = subscribed.totalFormLimit - 1;
+//       subscribed.save();
+//     }
+
+
+
+//     return res.status(httpsStatusCode.OK).json({
+//       success: true,
+//       message: message.lblFormCreatedSuccess,
+//       data: {
+//         data: formData,
+//       },
+//     });
+//   } catch (error) {
+//     console.error("Form creation error:", error);
+//     return res.status(httpsStatusCode.InternalServerError).json({
+//       success: false,
+//       message: "Internal server error",
+//       errorCode: "SERVER_ERROR",
+//       error: process.env.NODE_ENV === "development" ? error.message : undefined,
+//     });
+//   }
+// };
+
+
+
+// submit form new
 exports.submitForm = async (req, res, next) => {
   try {
     const { userId, organizationId, sessionId, phone, firstName } = req.body;
@@ -3647,7 +3791,14 @@ exports.submitForm = async (req, res, next) => {
         errorCode: "FIELD_MISSIING",
       });
     }
-
+    const organization = await organizationModel.findById(organizationId);
+    if (!organization) {
+      return res.status(httpsStatusCode.BadRequest).send({
+        success: false,
+        message: message.lblOrganizationNotFound,
+        errorCode: "ORGANIZATION_NOT_FOUND",
+      });
+    }
     const formSession = await sessionModel.findById(sessionId);
     if (!formSession) {
       return res.status(httpsStatusCode.NotFound).send({
@@ -3656,7 +3807,6 @@ exports.submitForm = async (req, res, next) => {
         errorCode: "SESSION_NOT_FOUND",
       });
     }
-
     const user = await userModel.findById(userId);
     let subscribed;
     if (user.roleId !== 1) {
@@ -3676,27 +3826,41 @@ exports.submitForm = async (req, res, next) => {
         });
       }
     }
-
     const otherThanFiles = {};
-    const files = [];
     for (const [key, value] of Object.entries(req.body)) {
       if (key !== "userId" && key !== "organizationId" && key !== "sessionId" && key !== "phone" && key !== "firstName") {
         otherThanFiles[key] = value;
       }
     }
-
+    const files = [];
     if (req.files && req.files.length > 0) {
-      req.files.forEach((file) => {
-        files.push({
-          fieldName: file.fieldname,
-          fileUrl: `/customForm/${file.filename}`, // Correct path
-          originalName: file.originalname,
-          mimeType: file.mimetype,
-          size: file.size,
-        });
-      });
+      for (const file of req.files) {
+        const fileSerialNumber = await commonFunction.getFileSerialNumber("fileSerialNumber")
+        const key = `form-dynamic-file/${organization.serialNumber}/${formSession.serialNumber}/${fileSerialNumber}_${file.originalname.toLowerCase().replace(/[^a-zA-Z0-9.-]/g, '')}`;
+        const params = {
+          Bucket: process.env.DO_SPACES_BUCKET,
+          Key: key,
+          Body: file.buffer,
+          ContentType: file.mimetype,
+          ACL: 'public-read',
+        };
+        try {
+          const uploadResult = await s3.upload(params).promise();
+          files.push({
+            fieldName: file.fieldname,
+            fileUrl: uploadResult.Location,
+            originalName: file.originalname,
+            mimeType: file.mimetype,
+            size: file.size,
+            key,
+          });
+        } catch (uploadError) {
+          console.log("No files uploaded", uploadError);
+          throw uploadError;
+        }
+      }
     } else {
-      console.log("No files uploaded"); // Debug log
+      console.log("No files uploaded");
     }
 
     const serialNumber = await getSerialNumber("form");
@@ -3738,9 +3902,6 @@ exports.submitForm = async (req, res, next) => {
       subscribed.totalFormLimit = subscribed.totalFormLimit - 1;
       subscribed.save();
     }
-
-
-
     return res.status(httpsStatusCode.OK).json({
       success: true,
       message: message.lblFormCreatedSuccess,
@@ -3759,12 +3920,109 @@ exports.submitForm = async (req, res, next) => {
   }
 };
 
-// update form
+
+// update form old
+// exports.updateForm = async (req, res, next) => {
+//   const session = await mongoose.startSession();
+//   try {
+//     const { formId } = req.params;
+//     const { userId, organizationId, sessionId, phone, firstName } = req.body;
+//     if (!mongoose.Types.ObjectId.isValid(formId)) {
+//       return res.status(httpsStatusCode.BadRequest).json({
+//         success: false,
+//         message: "Invalid ID format",
+//         errorCode: "INVALID_ID",
+//       });
+//     }
+//     if (!userId || !organizationId || !sessionId) {
+//       return res.status(httpsStatusCode.BadRequest).send({
+//         success: false,
+//         message: message.lblRequiredFieldMissing,
+//         errorCode: "FIELD_MISSIING",
+//       });
+//     }
+//     if (
+//       !mongoose.Types.ObjectId.isValid(userId) ||
+//       !mongoose.Types.ObjectId.isValid(organizationId) ||
+//       !mongoose.Types.ObjectId.isValid(sessionId)
+//     ) {
+//       return res.status(httpsStatusCode.BadRequest).json({
+//         success: false,
+//         message: "Invalid ID format",
+//         errorCode: "INVALID_ID",
+//       });
+//     }
+//     const formData = await formDataModel.findById(formId).session(session);
+//     if (!formData) {
+//       return res.status(httpsStatusCode.NotFound).json({
+//         success: false,
+//         message: message?.lblFormNotFound,
+//         errorCode: "NOT_FOUND",
+//       });
+//     }
+//     const otherThanFiles = {};
+//     const files = [];
+
+//     for (const [key, value] of Object.entries(req.body)) {
+//       if (key !== "userId" && key !== "organizationId" && key !== "sessionId" && key !== "phone" && key !== "firstName") {
+//         if (typeof value === "string" && !value.startsWith("/customForm/")) {
+//           otherThanFiles[key] = value;
+//         }
+//       }
+//     }
+//     if (req.files && req.files.length > 0) {
+//       req.files.forEach((file) => {
+//         files.push({
+//           fieldName: file.fieldname,
+//           fileUrl: `/customForm/${file.filename}`, // Correct path
+//           originalName: file.originalname,
+//           mimeType: file.mimetype,
+//           size: file.size,
+//         });
+//       });
+//     } else {
+//       console.log("No files uploaded"); // Debug log
+//     }
+
+//     formData.phone = phone !== undefined ? phone : formData.phone;
+//     formData.firstName = firstName !== undefined ? firstName : formData.firstName;
+//     formData.sessionId = sessionId;
+//     formData.userId = userId;
+//     formData.organizationId = organizationId;
+//     formData.otherThanFiles = new Map(Object.entries(otherThanFiles || {}));
+//     if (files.length > 0) {
+//       formData.files = files; // Replace files array
+//     }
+//     await session.withTransaction(async () => {
+//       await formData.save({ session });
+//     });
+//     await session.endSession();
+//     return res.status(httpsStatusCode.OK).json({
+//       success: true,
+//       message: message.lblFormUpdatedSuccess,
+//       data: {
+//         data: formData,
+//       },
+//     });
+//   } catch (error) {
+//     console.error("Form updation error:", error);
+//     return res.status(httpsStatusCode.InternalServerError).json({
+//       success: false,
+//       message: "Internal server error",
+//       errorCode: "SERVER_ERROR",
+//       error: process.env.NODE_ENV === "development" ? error.message : undefined,
+//     });
+//   }
+// };
+
+// update form new
 exports.updateForm = async (req, res, next) => {
   const session = await mongoose.startSession();
   try {
     const { formId } = req.params;
     const { userId, organizationId, sessionId, phone, firstName } = req.body;
+    console.log("req.body",req.body);
+    
     if (!mongoose.Types.ObjectId.isValid(formId)) {
       return res.status(httpsStatusCode.BadRequest).json({
         success: false,
@@ -3790,6 +4048,26 @@ exports.updateForm = async (req, res, next) => {
         errorCode: "INVALID_ID",
       });
     }
+
+    const organization = await organizationModel.findById(organizationId);
+    if (!organization) {
+      return res.status(httpsStatusCode.BadRequest).send({
+        success: false,
+        message: message.lblOrganizationNotFound,
+        errorCode: "ORGANIZATION_NOT_FOUND",
+      });
+    }
+
+     const formSession = await sessionModel.findById(sessionId);
+    if (!formSession) {
+      return res.status(httpsStatusCode.NotFound).send({
+        success: false,
+        message: message.lblSessionNotFound,
+        errorCode: "SESSION_NOT_FOUND",
+      });
+    }
+
+
     const formData = await formDataModel.findById(formId).session(session);
     if (!formData) {
       return res.status(httpsStatusCode.NotFound).json({
@@ -3799,27 +4077,44 @@ exports.updateForm = async (req, res, next) => {
       });
     }
     const otherThanFiles = {};
-    const files = [];
 
     for (const [key, value] of Object.entries(req.body)) {
       if (key !== "userId" && key !== "organizationId" && key !== "sessionId" && key !== "phone" && key !== "firstName") {
-        if (typeof value === "string" && !value.startsWith("/customForm/")) {
+        if (typeof value === "string" && !value.startsWith("https://billionforms-files")) {
           otherThanFiles[key] = value;
         }
       }
     }
+
+    const files = [];
     if (req.files && req.files.length > 0) {
-      req.files.forEach((file) => {
-        files.push({
-          fieldName: file.fieldname,
-          fileUrl: `/customForm/${file.filename}`, // Correct path
-          originalName: file.originalname,
-          mimeType: file.mimetype,
-          size: file.size,
-        });
-      });
+      for (const file of req.files) {
+        const fileSerialNumber = await commonFunction.getFileSerialNumber("fileSerialNumber")
+        const key = `form-dynamic-file/${organization.serialNumber}/${formSession.serialNumber}/${fileSerialNumber}_${file.originalname.toLowerCase().replace(/[^a-zA-Z0-9.-]/g, '')}`;
+        const params = {
+          Bucket: process.env.DO_SPACES_BUCKET,
+          Key: key,
+          Body: file.buffer,
+          ContentType: file.mimetype,
+          ACL: 'public-read',
+        };
+        try {
+          const uploadResult = await s3.upload(params).promise();
+          files.push({
+            fieldName: file.fieldname,
+            fileUrl: uploadResult.Location,
+            originalName: file.originalname,
+            mimeType: file.mimetype,
+            size: file.size,
+            key,
+          });
+        } catch (uploadError) {
+          console.log("No files uploaded", uploadError);
+          throw uploadError;
+        }
+      }
     } else {
-      console.log("No files uploaded"); // Debug log
+      console.log("No files uploaded");
     }
 
     formData.phone = phone !== undefined ? phone : formData.phone;

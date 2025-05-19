@@ -72,11 +72,11 @@ const startServer = async () => {
         // Connect to database
         await connectDb(DATABASE_URL);
         console.log('Database connected successfully');
-        await commonFunction.insertRole();
+        // await commonFunction.insertRole();
         // await commonFunction.insertSingleRole();
         // await commonFunction.insertSerialNumber()
-        await commonFunction.createSuperAdmin();
-        await commonFunction.createAccess();
+        // await commonFunction.createSuperAdmin();
+        // await commonFunction.createAccess();
         // await commonFunction.generateASerialNumber();
         // Start Express server
         server = app.listen(PORT, () => {

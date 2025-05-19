@@ -131,6 +131,21 @@ const uploadCustomForm = multer({
 });
 
 
+// upload custom form with S3 
+const uploadCustomFormWithS3 = multer({
+  storage: multer.memoryStorage(),
+  limits: { fileSize: 5 * 1024 * 1024 }, // 5MB limit
+  fileFilter: (req, file, cb) => {
+    const allowedTypes = ['image/jpeg', 'image/png', 'application/pdf', 'text/csv'];
+    if (!allowedTypes.includes(file.mimetype)) {
+      return cb(new Error('Invalid file type. Only JPEG, PNG, PDF, CSV allowed.'));
+    }
+    cb(null, true);
+  },
+});
+
+
 exports.uploadProfile = uploadProfile;
 exports.uploadImages = uploadImages;
 exports.uploadCustomForm = uploadCustomForm;
+exports.uploadCustomFormWithS3 = uploadCustomFormWithS3;

@@ -12,7 +12,7 @@ const companyModel = require("../../model/company.model");
 const userModel = require("../../model/user.model");
 const accessModel = require("../../model/access.model");
 
-const { uploadImages, uploadCustomForm } = require("../../utils/multer")
+const { uploadImages, uploadCustomForm, uploadCustomFormWithS3 } = require("../../utils/multer")
 
 const httpsStatusCode = require("../../utils/https-status-code");
 const message = require("../../utils/message");
@@ -316,9 +316,13 @@ router.get('/get/field/data/:id', superAdminController.getFormData);
 
 router.post('/check/password', superAdminController.checkPasword);
 
-router.post('/create/form', uploadCustomForm.any(), superAdminController.submitForm);
+// old
+// router.post('/create/form', uploadCustomForm.any(), superAdminController.submitForm);
 
-router.post('/update/form/:formId', uploadCustomForm.any(), superAdminController.updateForm);
+// new
+router.post('/create/form', uploadCustomFormWithS3.any(), superAdminController.submitForm);
+
+router.post('/update/form/:formId',  uploadCustomFormWithS3.any(), superAdminController.updateForm);
 
 router.post('/login/form', superAdminController.loginToEditForm );
 

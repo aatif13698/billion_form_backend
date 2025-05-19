@@ -489,13 +489,30 @@ const getSerialNumber = async (collection) => {
 }
 
 
+const getFileSerialNumber = async (collection) => {
+  try {
+    const result = await SerialNumber.findOneAndUpdate({ collectionName: collection }, { $inc: { nextNum: 1 } })
+    if (result) {
+      const currentYear = new Date().getFullYear().toString().slice(-2);
+      const serialNumber = result.nextNum;
+      return serialNumber
+    }
+    else {
+      return null
+    }
+  } catch (error) {
+    return null
+  }
+}
+
+
 // generate serial number
 
 const generateASerialNumber = async function () {
   try {
     const dataObject = {
-      collectionName: "superAdminStaff",
-      prefix: "SAS",
+      collectionName: "fileSerialNumber",
+      prefix: "FSN",
     }
     const isAlreadyExists = await serialNumberModel.findOne({ collectionName: dataObject?.collectionName });
     if (isAlreadyExists) {
@@ -554,6 +571,7 @@ module.exports = {
   insertSerialNumber,
   getSerialNumber,
   generateASerialNumber,
+  getFileSerialNumber,
   restrictOtherCompany,
   createAccess,
   calculateEndDate,
