@@ -111,6 +111,26 @@ const uploadImages = multer({
     }
 });
 
+// upload images to s3
+
+const uploadImagesWithS3 = multer({
+    storage: multer.memoryStorage(),
+    limits: {
+        fileSize: 2 * 1024 * 1024, // 2MB limit
+        files: 2, // Max 2 files (logo and banner)
+    },
+    fileFilter: (req, file, cb) => {
+        const allowedTypes = /jpg|JPG|jpeg|JPEG|png|PNG|gif|GIF|webp/;
+        const extname = allowedTypes.test(path.extname(file.originalname).toLowerCase().replace('.', ''));
+        const mimetype = allowedTypes.test(file.mimetype.split('/')[1].toLowerCase());
+
+        if (extname && mimetype) {
+            return cb(null, true);
+        }
+        cb(new Error('Only image files (jpg, jpeg, png, gif, webp) are allowed'), false);
+    },
+});
+
 
 
 // form submit
@@ -133,15 +153,15 @@ const uploadCustomForm = multer({
 
 // upload custom form with S3 
 const uploadCustomFormWithS3 = multer({
-  storage: multer.memoryStorage(),
-  limits: { fileSize: 5 * 1024 * 1024 }, // 5MB limit
-  fileFilter: (req, file, cb) => {
-    const allowedTypes = ['image/jpeg', 'image/png', 'application/pdf', 'text/csv'];
-    if (!allowedTypes.includes(file.mimetype)) {
-      return cb(new Error('Invalid file type. Only JPEG, PNG, PDF, CSV allowed.'));
-    }
-    cb(null, true);
-  },
+    storage: multer.memoryStorage(),
+    limits: { fileSize: 5 * 1024 * 1024 }, // 5MB limit
+    fileFilter: (req, file, cb) => {
+        const allowedTypes = ['image/jpeg', 'image/png', 'application/pdf', 'text/csv'];
+        if (!allowedTypes.includes(file.mimetype)) {
+            return cb(new Error('Invalid file type. Only JPEG, PNG, PDF, CSV allowed.'));
+        }
+        cb(null, true);
+    },
 });
 
 
@@ -149,3 +169,4 @@ exports.uploadProfile = uploadProfile;
 exports.uploadImages = uploadImages;
 exports.uploadCustomForm = uploadCustomForm;
 exports.uploadCustomFormWithS3 = uploadCustomFormWithS3;
+exports.uploadImagesWithS3 = uploadImagesWithS3;

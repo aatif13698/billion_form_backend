@@ -2490,8 +2490,161 @@ exports.getParticularSubscsribedUser = async (req, res, next) => {
 //   }
 // };
 
-// new
+// create organization old
+// exports.createOrganization = async (req, res) => {
+//   try {
+//     const user = req.user;
+//     const { name, captionText, address, email, phone } = req.body;
 
+//     // Validate required fields
+//     if (!name || !captionText || !address || !email || !phone) {
+//       return res.status(400).json({
+//         success: false,
+//         message: 'All required fields must be provided',
+//         errorCode: 'FIELD_MISSING'
+//       });
+//     }
+
+//     // Validate email format
+//     const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+//     if (!emailRegex.test(email)) {
+//       return res.status(400).json({
+//         success: false,
+//         message: 'Invalid email format',
+//         errorCode: 'INVALID_EMAIL'
+//       });
+//     }
+
+//     // Validate phone format (basic validation, adjust as needed)
+//     const phoneRegex = /^\+?[\d\s-]{10,}$/;
+//     if (!phoneRegex.test(phone)) {
+//       return res.status(400).json({
+//         success: false,
+//         message: 'Invalid phone number format',
+//         errorCode: 'INVALID_PHONE'
+//       });
+//     }
+
+//     // Check for existing organization
+//     const existingOrganization = await organizationModel.findOne({
+//       userId: user?._id,
+//       name,
+//       deletedAt: null
+//     });
+
+//     if (existingOrganization) {
+//       return res.status(409).json({
+//         success: false,
+//         message: 'Organization with this name already exists',
+//         errorCode: 'ORGANIZATION_ALREADY_EXISTS'
+//       });
+//     }
+
+
+//     let subscribed;
+//     if (user.roleId !== 1) {
+//       subscribed = await subscribedUserModel.findOne({ userId: user._id });
+//       if (!subscribed) {
+//         return res.status(httpsStatusCode.NotFound).send({
+//           success: false,
+//           message: message.lblSubscribedUserNotFound,
+//           errorCode: "SUBSCRIBED_NOT_FOUND",
+//         });
+//       }
+//       if (subscribed.totalOrgLimit == 0) {
+//         return res.status(httpsStatusCode.Conflict).send({
+//           success: false,
+//           message: "Organization Limit Exceded.",
+//           errorCode: "ORGANIZATION_LIMIT_EXCEDED",
+//         });
+//       }
+//     }
+
+//     // Handle uploaded files
+//     let logoPath = null;
+//     let bannerPath = null;
+
+//     if (req.files) {
+//       if (req.files.logo) {
+//         logoPath = `/images/${req.files.logo[0].filename}`;
+//       }
+//       if (req.files.banner) {
+//         bannerPath = `/images/${req.files.banner[0].filename}`;
+//       }
+//     }
+
+//     // Generate serial number
+//     const serial = await getSerialNumber("organization");
+
+//     // Create new organization
+//     const newOrganization = await organizationModel.create({
+//       userId: user._id,
+//       serialNumber: serial,
+//       name,
+//       captionText,
+//       address,
+//       email: email.toLowerCase(),
+//       phone,
+//       logo: logoPath,
+//       banner: bannerPath,
+//       isActive: true
+//     });
+
+//     if (user.roleId !== 1) {
+//       subscribed.totalOrgLimit = subscribed.totalOrgLimit - 1;
+//       subscribed.save();
+//     }
+
+//     // Return success response
+//     return res.status(201).json({
+//       success: true,
+//       message: 'Organization created successfully',
+//       data: {
+//         organization: {
+//           id: newOrganization._id,
+//           serialNumber: newOrganization.serialNumber,
+//           name: newOrganization.name,
+//           email: newOrganization.email
+//         }
+//       }
+//     });
+
+//   } catch (error) {
+//     console.error('Organization creation error:', error);
+
+//     // Handle specific multer errors
+//     if (error instanceof multer.MulterError) {
+//       return res.status(400).json({
+//         success: false,
+//         message: error.message === 'File too large'
+//           ? 'File size exceeds 2MB limit'
+//           : 'File upload error',
+//         errorCode: 'FILE_UPLOAD_ERROR'
+//       });
+//     }
+
+//     // Handle validation errors
+//     if (error.name === 'ValidationError') {
+//       return res.status(400).json({
+//         success: false,
+//         message: 'Validation error',
+//         errorCode: 'VALIDATION_ERROR',
+//         errors: Object.values(error.errors).map(err => err.message)
+//       });
+//     }
+
+//     // Generic server error
+//     return res.status(500).json({
+//       success: false,
+//       message: 'Internal server error',
+//       errorCode: 'SERVER_ERROR',
+//       error: IS_DEV ? error.message : undefined
+//     });
+//   }
+// };
+
+
+// create organization new
 exports.createOrganization = async (req, res) => {
   try {
     const user = req.user;
@@ -2562,20 +2715,40 @@ exports.createOrganization = async (req, res) => {
     }
 
     // Handle uploaded files
-    let logoPath = null;
-    let bannerPath = null;
+    let logoUrl = null;
+    let bannerUrl = null;
+
+    const serial = await getSerialNumber("organization");
+
 
     if (req.files) {
-      if (req.files.logo) {
-        logoPath = `/images/${req.files.logo[0].filename}`;
+      const uploadFile = async (file, fileType) => {
+        const key = `organization-images/${serial}/${fileType}_${file.originalname.toLowerCase().replace(/[^a-zA-Z0-9.-]/g, '')}`;
+        const params = {
+          Bucket: process.env.DO_SPACES_BUCKET,
+          Key: key,
+          Body: file.buffer,
+          ContentType: file.mimetype,
+          ACL: 'public-read',
+        };
+
+        try {
+          const uploadResult = await s3.upload(params).promise();
+          return uploadResult.Location;
+        } catch (uploadError) {
+          throw uploadError;
+        }
+      };
+
+      if (req.files.logo && req.files.logo[0]) {
+        logoUrl = await uploadFile(req.files.logo[0], 'logo');
       }
-      if (req.files.banner) {
-        bannerPath = `/images/${req.files.banner[0].filename}`;
+      if (req.files.banner && req.files.banner[0]) {
+        bannerUrl = await uploadFile(req.files.banner[0], 'banner');
       }
     }
 
     // Generate serial number
-    const serial = await getSerialNumber("organization");
 
     // Create new organization
     const newOrganization = await organizationModel.create({
@@ -2586,8 +2759,8 @@ exports.createOrganization = async (req, res) => {
       address,
       email: email.toLowerCase(),
       phone,
-      logo: logoPath,
-      banner: bannerPath,
+      logo: logoUrl,
+      banner: bannerUrl,
       isActive: true
     });
 
@@ -2644,7 +2817,128 @@ exports.createOrganization = async (req, res) => {
   }
 };
 
-// update organization
+
+
+// update organization old
+// exports.updateOrganization = async (req, res) => {
+//   try {
+//     const user = req.user;
+//     const { organizationId, name, captionText, address, email, phone } = req.body;
+//     // Validate required fields
+//     if (!name || !captionText || !address || !email || !phone) {
+//       return res.status(400).json({
+//         success: false,
+//         message: 'All required fields must be provided',
+//         errorCode: 'FIELD_MISSING'
+//       });
+//     }
+//     // Validate email format
+//     const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+//     if (!emailRegex.test(email)) {
+//       return res.status(400).json({
+//         success: false,
+//         message: 'Invalid email format',
+//         errorCode: 'INVALID_EMAIL'
+//       });
+//     }
+//     // Validate phone format (basic validation, adjust as needed)
+//     const phoneRegex = /^\+?[\d\s-]{10,}$/;
+//     if (!phoneRegex.test(phone)) {
+//       return res.status(400).json({
+//         success: false,
+//         message: 'Invalid phone number format',
+//         errorCode: 'INVALID_PHONE'
+//       });
+//     }
+//     // Check for existing organization
+//     // const existingOrganization = await organizationModel.findOne({
+//     //   userId: user?._id,
+//     //   name,
+//     //   deletedAt: null
+//     // });
+
+//     // if (existingOrganization) {
+//     //   return res.status(409).json({
+//     //     success: false,
+//     //     message: 'Organization with this name already exists',
+//     //     errorCode: 'ORGANIZATION_ALREADY_EXISTS'
+//     //   });
+//     // }
+
+//     const existingData = await organizationModel.findById(organizationId)
+//     // Handle uploaded files
+//     let logoPath = null;
+//     let bannerPath = null;
+//     if (req.files) {
+//       if (req.files.logo) {
+//         logoPath = `/images/${req.files.logo[0].filename}`;
+//       }
+//       if (req.files.banner) {
+//         bannerPath = `/images/${req.files.banner[0].filename}`;
+//       }
+//     }
+//     let dataOject = {
+//       name,
+//       captionText,
+//       address,
+//       email: email.toLowerCase(),
+//       phone,
+//     }
+//     if (logoPath) {
+//       dataOject.logo = logoPath
+//     }
+//     if (bannerPath) {
+//       dataOject.banner = bannerPath
+//     }
+//     Object.assign(existingData, {
+//       ...dataOject
+//     });
+//     await existingData.save()
+//     return res.status(201).json({
+//       success: true,
+//       message: message.lblOrganizationUpdatedSuccess,
+//       data: {
+//         organization: {
+//           id: existingData._id,
+//           serialNumber: existingData.serialNumber,
+//           name: existingData.name,
+//           email: existingData.email
+//         }
+//       }
+//     });
+//   } catch (error) {
+//     console.error('Organization updation error:', error);
+//     // Handle specific multer errors
+//     if (error instanceof multer.MulterError) {
+//       return res.status(400).json({
+//         success: false,
+//         message: error.message === 'File too large'
+//           ? 'File size exceeds 2MB limit'
+//           : 'File upload error',
+//         errorCode: 'FILE_UPLOAD_ERROR'
+//       });
+//     }
+
+//     // Handle validation errors
+//     if (error.name === 'ValidationError') {
+//       return res.status(400).json({
+//         success: false,
+//         message: 'Validation error',
+//         errorCode: 'VALIDATION_ERROR',
+//         errors: Object.values(error.errors).map(err => err.message)
+//       });
+//     }
+//     // Generic server error
+//     return res.status(500).json({
+//       success: false,
+//       message: 'Internal server error',
+//       errorCode: 'SERVER_ERROR',
+//       error: IS_DEV ? error.message : undefined
+//     });
+//   }
+// };
+
+// update organization new
 exports.updateOrganization = async (req, res) => {
   try {
     const user = req.user;
@@ -2692,14 +2986,32 @@ exports.updateOrganization = async (req, res) => {
 
     const existingData = await organizationModel.findById(organizationId)
     // Handle uploaded files
-    let logoPath = null;
-    let bannerPath = null;
+    let logoUrl = null;
+    let bannerUrl = null;
     if (req.files) {
-      if (req.files.logo) {
-        logoPath = `/images/${req.files.logo[0].filename}`;
+      const uploadFile = async (file, fileType) => {
+        const key = `organization-images/${existingData.serialNumber}/${fileType}_${file.originalname.toLowerCase().replace(/[^a-zA-Z0-9.-]/g, '')}`;
+        const params = {
+          Bucket: process.env.DO_SPACES_BUCKET,
+          Key: key,
+          Body: file.buffer,
+          ContentType: file.mimetype,
+          ACL: 'public-read',
+        };
+
+        try {
+          const uploadResult = await s3.upload(params).promise();
+          return uploadResult.Location;
+        } catch (uploadError) {
+          throw uploadError;
+        }
+      };
+
+      if (req.files.logo && req.files.logo[0]) {
+        logoUrl = await uploadFile(req.files.logo[0], 'logo');
       }
-      if (req.files.banner) {
-        bannerPath = `/images/${req.files.banner[0].filename}`;
+      if (req.files.banner && req.files.banner[0]) {
+        bannerUrl = await uploadFile(req.files.banner[0], 'banner');
       }
     }
     let dataOject = {
@@ -2709,11 +3021,11 @@ exports.updateOrganization = async (req, res) => {
       email: email.toLowerCase(),
       phone,
     }
-    if (logoPath) {
-      dataOject.logo = logoPath
+    if (logoUrl) {
+      dataOject.logo = logoUrl
     }
-    if (bannerPath) {
-      dataOject.banner = bannerPath
+    if (bannerUrl) {
+      dataOject.banner = bannerUrl
     }
     Object.assign(existingData, {
       ...dataOject
@@ -2762,6 +3074,7 @@ exports.updateOrganization = async (req, res) => {
     });
   }
 };
+
 
 
 // get all organization
@@ -4021,8 +4334,8 @@ exports.updateForm = async (req, res, next) => {
   try {
     const { formId } = req.params;
     const { userId, organizationId, sessionId, phone, firstName } = req.body;
-    console.log("req.body",req.body);
-    
+    console.log("req.body", req.body);
+
     if (!mongoose.Types.ObjectId.isValid(formId)) {
       return res.status(httpsStatusCode.BadRequest).json({
         success: false,
@@ -4058,7 +4371,7 @@ exports.updateForm = async (req, res, next) => {
       });
     }
 
-     const formSession = await sessionModel.findById(sessionId);
+    const formSession = await sessionModel.findById(sessionId);
     if (!formSession) {
       return res.status(httpsStatusCode.NotFound).send({
         success: false,

@@ -12,7 +12,7 @@ const companyModel = require("../../model/company.model");
 const userModel = require("../../model/user.model");
 const accessModel = require("../../model/access.model");
 
-const { uploadImages, uploadCustomForm, uploadCustomFormWithS3 } = require("../../utils/multer")
+const { uploadImages, uploadCustomForm, uploadCustomFormWithS3, uploadImagesWithS3 } = require("../../utils/multer")
 
 const httpsStatusCode = require("../../utils/https-status-code");
 const message = require("../../utils/message");
@@ -224,9 +224,33 @@ router.get('/get/subscribed/:id', superAdminAuth, superAdminController.getPartic
 
 // --------- Organization routes starts here -------------------
 
+// create organization old
+// router.post("/create/organization", superAdminAndClientAuth, (req, res, next) => {
+//   uploadImages.fields([
+//     { name: 'logo', maxCount: 1 },
+//     { name: 'banner', maxCount: 1 }
+//   ])(req, res, (err) => {
+//     if (err) {
+//       if (err instanceof multer.MulterError) {
+//         // MulterError: File too large
+//         return res.status(httpsStatusCode.BadRequest).send({
+//           message: 'File too large. Maximum file size allowed is 2 MB.'
+//         });
+//       } else {
+//         // Other errors
+//         console.error('Multer Error:', err.message);
+//         return res.status(httpsStatusCode.BadRequest).send({
+//           message: err.message
+//         });
+//       }
+//     }
+//     next();
+//   });
+// }, superAdminController.createOrganization);
 
+// create organization new
 router.post("/create/organization", superAdminAndClientAuth, (req, res, next) => {
-  uploadImages.fields([
+  uploadImagesWithS3.fields([
     { name: 'logo', maxCount: 1 },
     { name: 'banner', maxCount: 1 }
   ])(req, res, (err) => {
@@ -248,9 +272,34 @@ router.post("/create/organization", superAdminAndClientAuth, (req, res, next) =>
   });
 }, superAdminController.createOrganization);
 
+// update organization old
+// router.post("/update/organization", superAdminAndClientAuth, (req, res, next) => {
+//   uploadImages.fields([
+//     { name: 'logo', maxCount: 1 },
+//     { name: 'banner', maxCount: 1 }
+//   ])(req, res, (err) => {
+//     if (err) {
+//       if (err instanceof multer.MulterError) {
+//         // MulterError: File too large
+//         return res.status(httpsStatusCode.BadRequest).send({
+//           message: 'File too large. Maximum file size allowed is 2 MB.'
+//         });
+//       } else {
+//         // Other errors
+//         console.error('Multer Error:', err.message);
+//         return res.status(httpsStatusCode.BadRequest).send({
+//           message: err.message
+//         });
+//       }
+//     }
+//     next();
+//   });
+// }, superAdminController.updateOrganization);
+
+// update organization new
 
 router.post("/update/organization", superAdminAndClientAuth, (req, res, next) => {
-  uploadImages.fields([
+  uploadImagesWithS3.fields([
     { name: 'logo', maxCount: 1 },
     { name: 'banner', maxCount: 1 }
   ])(req, res, (err) => {
