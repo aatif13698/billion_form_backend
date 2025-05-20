@@ -26,6 +26,12 @@ const formDataModel = require("../../model/formData.model");
 const accessModel = require("../../model/access.model");
 const AWS = require('aws-sdk');
 
+const archiver = require('archiver');
+const { v4: uuidv4 } = require('uuid');
+const DownloadJob = require("../../model/downloadJob.model");
+const { PassThrough } = require('stream');
+
+
 
 
 // DigitalOcean Spaces setup
@@ -4149,7 +4155,7 @@ exports.submitForm = async (req, res, next) => {
     if (req.files && req.files.length > 0) {
       for (const file of req.files) {
         const fileSerialNumber = await commonFunction.getFileSerialNumber("fileSerialNumber")
-        const key = `form-dynamic-file/${organization.serialNumber}/${formSession.serialNumber}/${fileSerialNumber}_${file.originalname.toLowerCase().replace(/[^a-zA-Z0-9.-]/g, '')}`;
+        const key = `form-dynamic-file/${organization.serialNumber}/${formSession.serialNumber}/${file.fieldname}/${fileSerialNumber}_${file.originalname.toLowerCase().replace(/[^a-zA-Z0-9.-]/g, '')}`;
         const params = {
           Bucket: process.env.DO_SPACES_BUCKET,
           Key: key,
@@ -4403,7 +4409,7 @@ exports.updateForm = async (req, res, next) => {
     if (req.files && req.files.length > 0) {
       for (const file of req.files) {
         const fileSerialNumber = await commonFunction.getFileSerialNumber("fileSerialNumber")
-        const key = `form-dynamic-file/${organization.serialNumber}/${formSession.serialNumber}/${fileSerialNumber}_${file.originalname.toLowerCase().replace(/[^a-zA-Z0-9.-]/g, '')}`;
+        const key = `form-dynamic-file/${organization.serialNumber}/${formSession.serialNumber}/${file.fieldname}/${fileSerialNumber}_${file.originalname.toLowerCase().replace(/[^a-zA-Z0-9.-]/g, '')}`;
         const params = {
           Bucket: process.env.DO_SPACES_BUCKET,
           Key: key,
@@ -4542,4 +4548,419 @@ exports.getAllFormsBySession = async (req, res, next) => {
 
 
 
-// ---------- Custom form controller ends here -------------
+// ---------- Custom form controller ends here ------------
+
+
+
+// ---------- custom form file download controller starts here -------------
+
+// Download files by fieldName for a session
+exports.downloadFilesByField = async (req, res) => {
+  try {
+    const { sessionId, fieldName } = req.query;
+    const user = req.user;
+
+    if (!sessionId || !fieldName) {
+      logger.warn('Missing sessionId or fieldName', { userId: user._id });
+      return res.status(httpsStatusCode.BadRequest).json({
+        success: false,
+        message: 'sessionId and fieldName are required',
+        errorCode: 'FIELD_MISSING',
+      });
+    }
+
+    // Validate session
+    const session = await sessionModel.findById(sessionId);
+    if (!session) {
+      logger.warn('Session not found', { sessionId });
+      return res.status(httpsStatusCode.NotFound).json({
+        success: false,
+        message: message.lblSessionNotFound,
+        errorCode: 'SESSION_NOT_FOUND',
+      });
+    }
+
+    // Create download job
+    const jobId = uuidv4();
+    await DownloadJob.create({
+      jobId,
+      sessionId,
+      userId: user._id,
+      fieldName,
+      status: 'pending',
+      progress: 0,
+      // expiresAt: new Date(Date.now() + 7 * 24 * 3600 * 1000),
+      expiresAt: new Date(Date.now() + 2 * 60 * 1000)
+    });
+    console.log('Download job initiated', { jobId, sessionId, fieldName });
+
+    // Process download asynchronously
+    setImmediate(async () => {
+      try {
+        await DownloadJob.updateOne({ jobId }, { status: 'processing' });
+        console.log('Started ZIP generation', { jobId, sessionId, fieldName });
+
+        // Fetch forms with matching files (case-insensitive)
+        const newForms = await formDataModel
+          .find({
+            sessionId,
+            'files.fieldName': { $regex: `^${fieldName}$`, $options: 'i' },
+          })
+          .lean();
+
+
+        const forms = newForms.map((item) => {
+          const files = item.files;
+          const newFiles = files.map((f) => {
+            return {
+              ...f,
+              key: commonFunction.getRelativeFilePath(f?.fileUrl)
+            }
+          });
+          console.log("newFiles", newFiles);
+          return {
+            ...item,
+            files: [...newFiles]
+          }
+        });
+
+        console.log("newForms", newForms);
+        console.log("forms", forms);
+
+        const newFiles = forms
+          .flatMap((form) => form.files)
+          .filter((file) => file.fieldName.toLowerCase() === fieldName.toLowerCase());
+
+        const files = newFiles.map((item) => {
+          return { ...item, key: commonFunction.getRelativeFilePath(item?.fileUrl) }
+        });
+
+        console.log("files", files);
+        const totalFiles = files.length;
+
+        if (totalFiles === 0) {
+          await DownloadJob.updateOne({ jobId }, {
+            status: 'failed',
+            errorMessage: 'No files found for the specified field',
+          });
+          console.log('No files found for field', { jobId, sessionId, fieldName });
+          return;
+        }
+
+        // Create ZIP archive
+        const zipKey = `temp/zips/${jobId}_${fieldName}.zip`;
+        const archive = archiver('zip', { zlib: { level: 9 } });
+        const passThrough = new PassThrough();
+
+        const uploadParams = {
+          Bucket: process.env.DO_SPACES_BUCKET,
+          Key: zipKey,
+          Body: passThrough,
+          ContentType: 'application/zip',
+          ACL: 'private',
+        };
+        const upload = s3.upload(uploadParams);
+        archive.pipe(passThrough);
+        // Track progress
+        let processedFiles = 0;
+        archive.on('progress', ({ entries }) => {
+          processedFiles = entries.processed;
+          const progress = Math.round((processedFiles / totalFiles) * 100);
+          DownloadJob.updateOne({ jobId }, { progress }).catch((err) => {
+            console.log('Failed to update progress', { jobId, err })
+
+          }
+          );
+        });
+
+        // Add files to ZIP in batches
+        const batchSize = 100;
+        for (let i = 0; i < files.length; i += batchSize) {
+          const batch = files.slice(i, i + batchSize);
+          console.log("batch", batch);
+
+          for (const file of batch) {
+            if (!file.key || typeof file.key !== 'string' || file.key.trim() === '') {
+              console.log('Skipping file with invalid key', {
+                jobId,
+                formId: file._id,
+                fieldName: file.fieldName,
+                originalName: file.originalName,
+              });
+              continue;
+            }
+            try {
+              const form = forms.find((f) =>
+                f.files.some((f) => f.key === file.key)
+              );
+              const fileStream = s3.getObject({
+                Bucket: process.env.DO_SPACES_BUCKET,
+                Key: file.key,
+              }).createReadStream();
+              archive.append(fileStream, {
+                name: `${form.serialNumber}_${file.originalName.replace(/[^a-zA-Z0-9.-]/g, '')}`,
+              });
+            } catch (err) {
+              console.log('Failed to stream file', { jobId, key: file.key, err: err.message });
+              continue;
+            }
+          }
+        }
+
+        // Handle archiver errors
+        archive.on('error', (err) => {
+          console.log('Archiver error', { jobId, err: err.message });
+          throw err;
+        });
+
+        // Finalize ZIP
+        archive.finalize();
+        await upload.promise();
+        console.log('ZIP uploaded to Spaces', { jobId, zipKey, fieldName });
+
+        // Generate signed URL (7-day expiry)
+        const zipUrl = await s3.getSignedUrlPromise('getObject', {
+          Bucket: process.env.DO_SPACES_BUCKET,
+          Key: zipKey,
+          Expires: 7 * 24 * 3600,
+        });
+
+        // Update job status
+        await DownloadJob.updateOne(
+          { jobId },
+          {
+            status: 'completed',
+            progress: 100,
+            zipUrl,
+            expiresAt: new Date(Date.now() + 7 * 24 * 3600 * 1000),
+          }
+        );
+        console.log('Download job completed', { jobId, sessionId, fieldName });
+      } catch (error) {
+        console.log("error", error);
+
+        console.log('ZIP generation failed', { jobId, error: error.message });
+        await DownloadJob.updateOne({ jobId }, {
+          status: 'failed',
+          errorMessage: error.message || 'Failed to generate ZIP',
+        });
+      }
+    });
+
+    return res.status(httpsStatusCode.OK).json({
+      success: true,
+      message: 'Download job initiated',
+      data: { jobId },
+    });
+  } catch (error) {
+    console.log('Download initiation error', { error: error.message });
+    return res.status(httpsStatusCode.InternalServerError).json({
+      success: false,
+      message: 'Internal server error',
+      errorCode: 'SERVER_ERROR',
+    });
+  }
+};
+
+// Download all files for a session
+exports.downloadSessionFiles = async (req, res) => {
+  try {
+    const { sessionId } = req.query;
+    const user = req.user;
+    if (!sessionId) {
+      logger.warn('Missing sessionId', { userId: user._id });
+      return res.status(httpsStatusCode.BadRequest).json({
+        success: false,
+        message: 'sessionId is required',
+        errorCode: 'FIELD_MISSING',
+      });
+    }
+
+    const session = await sessionModel.findById(sessionId);
+    if (!session) {
+      // logger.warn('Session not found', { sessionId });
+      return res.status(httpsStatusCode.NotFound).json({
+        success: false,
+        message: message.lblSessionNotFound,
+        errorCode: 'SESSION_NOT_FOUND',
+      });
+    }
+
+    const jobId = uuidv4();
+    await DownloadJob.create({
+      jobId,
+      sessionId,
+      userId: user._id,
+      status: 'pending',
+      progress: 0,
+      zipKey,
+      expiresAt: new Date(Date.now() + 7 * 24 * 3600 * 1000),
+    });
+    // logger.info('Download job initiated', { jobId, sessionId });
+
+    setImmediate(async () => {
+      try {
+        await DownloadJob.updateOne({ jobId }, { status: 'processing' });
+        // logger.info('Started ZIP generation', { jobId, sessionId });
+
+        const forms = await formDataModel.find({ sessionId }).lean();
+        const totalFiles = forms.reduce((sum, form) => sum + form.files.length, 0);
+        if (totalFiles === 0) {
+          await DownloadJob.updateOne({ jobId }, {
+            status: 'failed',
+            errorMessage: 'No files found for the session',
+          });
+          // logger.warn('No files found for session', { jobId, sessionId });
+          return;
+        }
+
+        const zipKey = `temp/zips/${jobId}.zip`;
+        const archive = archiver('zip', { zlib: { level: 9 } });
+        const uploadParams = {
+          Bucket: process.env.DO_SPACES_BUCKET,
+          Key: zipKey,
+          Body: archive,
+          ContentType: 'application/zip',
+          ACL: 'private',
+        };
+        const upload = s3.upload(uploadParams);
+
+        let processedFiles = 0;
+        archive.on('progress', ({ entries }) => {
+          processedFiles = entries.processed;
+          const progress = Math.round((processedFiles / totalFiles) * 100);
+          DownloadJob.updateOne({ jobId }, { progress }).catch((err) => {
+
+          }
+            // logger.error('Failed to update progress', { jobId, err })
+          );
+        });
+
+        const batchSize = 100;
+        for (let i = 0; i < forms.length; i += batchSize) {
+          const batch = forms.slice(i, i + batchSize);
+          for (const form of batch) {
+            for (const file of form.files) {
+              if (!file.key || typeof file.key !== 'string' || file.key.trim() === '') {
+                // logger.warn('Skipping file with invalid key', {
+                //   jobId,
+                //   formId: form._id,
+                //   fieldName: file.fieldName,
+                //   originalName: file.originalName,
+                // });
+                continue;
+              }
+              try {
+                const fileStream = s3.getObject({
+                  Bucket: process.env.DO_SPACES_BUCKET,
+                  Key: file.key,
+                }).createReadStream();
+                archive.append(fileStream, {
+                  name: `${form.serialNumber}_${file.originalName.replace(/[^a-zA-Z0-9.-]/g, '')}`,
+                });
+              } catch (err) {
+                // logger.error('Failed to stream file', { jobId, key: file.key, err: err.message });
+                continue;
+              }
+            }
+          }
+        }
+
+        archive.on('error', (err) => {
+          // logger.error('Archiver error', { jobId, err: err.message });
+          throw err;
+        });
+
+        archive.finalize();
+        await upload.promise();
+        // logger.info('ZIP uploaded to Spaces', { jobId, zipKey });
+
+        const zipUrl = await s3.getSignedUrlPromise('getObject', {
+          Bucket: process.env.DO_SPACES_BUCKET,
+          Key: zipKey,
+          Expires: 7 * 24 * 3600,
+        });
+
+        await DownloadJob.updateOne(
+          { jobId },
+          {
+            status: 'completed',
+            progress: 100,
+            zipUrl,
+            expiresAt: new Date(Date.now() + 7 * 24 * 3600 * 1000),
+          }
+        );
+        // logger.info('Download job completed', { jobId, sessionId });
+      } catch (error) {
+        // logger.error('ZIP generation failed', { jobId, error: error.message });
+        await DownloadJob.updateOne({ jobId }, {
+          status: 'failed',
+          errorMessage: error.message || 'Failed to generate ZIP',
+        });
+      }
+    });
+
+    return res.status(httpsStatusCode.OK).json({
+      success: true,
+      message: 'Download job initiated',
+      data: { jobId },
+    });
+  } catch (error) {
+    // logger.error('Download initiation error', { error: error.message });
+    return res.status(httpsStatusCode.InternalServerError).json({
+      success: false,
+      message: 'Internal server error',
+      errorCode: 'SERVER_ERROR',
+    });
+  }
+};
+
+// Check job status
+exports.getDownloadStatus = async (req, res) => {
+  try {
+    const { jobId } = req.query;
+    const user = req.user;
+    if (!jobId) {
+      // logger.warn('Missing jobId', { userId: user._id });
+      return res.status(httpsStatusCode.BadRequest).json({
+        success: false,
+        message: 'jobId is required',
+        errorCode: 'FIELD_MISSING',
+      });
+    }
+
+    const job = await DownloadJob.findOne({ jobId, userId: user._id });
+    if (!job) {
+      // logger.warn('Download job not found', { jobId, userId: user._id });
+      return res.status(httpsStatusCode.NotFound).json({
+        success: false,
+        message: 'Download job not found',
+        errorCode: 'JOB_NOT_FOUND',
+      });
+    }
+
+    return res.status(httpsStatusCode.OK).json({
+      success: true,
+      message: 'Download job status',
+      data: {
+        jobId: job.jobId,
+        status: job.status,
+        progress: job.progress,
+        zipUrl: job.status === 'completed' ? job.zipUrl : null,
+        fieldName: job.fieldName,
+        errorMessage: job.errorMessage,
+      },
+    });
+  } catch (error) {
+    // logger.error('Status check error', { error: error.message });
+    return res.status(httpsStatusCode.InternalServerError).json({
+      success: false,
+      message: 'Internal server error',
+      errorCode: 'SERVER_ERROR',
+    });
+  }
+};
+
+
+// ---------- custom form file download controller starts here -------------
+

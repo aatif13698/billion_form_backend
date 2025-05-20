@@ -558,6 +558,10 @@ const encryptId = (id) => {
 
 
 
+function getRelativeFilePath(url) {
+  const baseUrl = "https://billionforms-files.blr1.digitaloceanspaces.com/";
+  return url.replace(baseUrl, '');
+}
 
 // Export the functions
 module.exports = {
@@ -576,5 +580,6 @@ module.exports = {
   createAccess,
   calculateEndDate,
   encryptId,
-  insertSingleRole
+  insertSingleRole,
+  getRelativeFilePath
 };

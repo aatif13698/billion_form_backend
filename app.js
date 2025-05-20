@@ -32,6 +32,7 @@ const welcomeRouter = require("./routes/welcome");
 const authRouter = require("./commonAuthentication/routes/auth.routes");
 const superAdminAdministrationhRouter = require("./superAdminAdministration/routes/superAdmin.routes");
 const adminRouter = require("./adminAdministration/routes/admin.routes");
+const scheduleZipCleanup = require('./utils/cron');
 
 // Middleware setup
 app.use(cors({
@@ -78,6 +79,8 @@ const startServer = async () => {
         // await commonFunction.createSuperAdmin();
         // await commonFunction.createAccess();
         // await commonFunction.generateASerialNumber();
+        // scheduleZipCleanup(); //  Start your cron after DB connection
+
         // Start Express server
         server = app.listen(PORT, () => {
             console.log(`Server started successfully on port ${PORT}`);

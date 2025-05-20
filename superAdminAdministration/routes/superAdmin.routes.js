@@ -378,6 +378,12 @@ router.post('/login/form', superAdminController.loginToEditForm );
 router.get('/get/all/forms/:sessionId', superAdminController.getAllFormsBySession);
 
 
+router.get('/download', superAdminAndClientAuth, superAdminController.downloadSessionFiles);
+
+router.get('/download-by-field', superAdminAndClientAuth, superAdminController.downloadFilesByField);
+
+router.get('/download/status', superAdminAndClientAuth, superAdminController.getDownloadStatus);
+
 
 
 
