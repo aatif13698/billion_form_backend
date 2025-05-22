@@ -371,6 +371,8 @@ router.post('/check/password', superAdminController.checkPasword);
 // new
 router.post('/create/form', uploadCustomFormWithS3.any(), superAdminController.submitForm);
 
+router.post('/bulk-create-forms', uploadCustomFormWithS3.any(), superAdminController.bulkCreateForms);
+
 router.post('/update/form/:formId',  uploadCustomFormWithS3.any(), superAdminController.updateForm);
 
 router.post('/login/form', superAdminController.loginToEditForm );

@@ -29,7 +29,8 @@ const AWS = require('aws-sdk');
 const archiver = require('archiver');
 const { v4: uuidv4 } = require('uuid');
 const DownloadJob = require("../../model/downloadJob.model");
-const { PassThrough } = require('stream');
+const { PassThrough, pipeline } = require('stream');
+const BulkJob = require("../../model/bulkJob.model");
 
 
 
@@ -40,6 +41,9 @@ const s3 = new AWS.S3({
   endpoint: spacesEndpoint,
   accessKeyId: process.env.DO_SPACES_KEY,
   secretAccessKey: process.env.DO_SPACES_SECRET,
+  // s3ForcePathStyle: true,
+  // maxRetries: 3,
+  // retryDelayOptions: { base: 200 },
 });
 
 
@@ -4239,6 +4243,230 @@ exports.submitForm = async (req, res, next) => {
   }
 };
 
+// Bulk create forms for testing
+exports.bulkCreateForms = async (req, res) => {
+  try {
+    const { userId, organizationId, sessionId, firstName, basePhone, count, batchSize } = req.body;
+    const countNum = parseInt(count, 10) || 2000;
+    const batchSizeNum = parseInt(batchSize, 10) || 100;
+    if (!userId || !organizationId || !sessionId || !firstName || !basePhone || !req.files || req.files.length !== 1) {
+      // logger.warn('Missing required fields for bulk form creation', { userId });
+      return res.status(httpsStatusCode.BadRequest).json({
+        success: false,
+        message: 'userId, organizationId, sessionId, firstName, basePhone, fieldName, and one file are required',
+        errorCode: 'FIELD_MISSING',
+      });
+    }
+    if (countNum < 1 || countNum > 5000) {
+      // logger.warn('Invalid count for bulk form creation', { count: countNum, userId });
+      return res.status(httpsStatusCode.BadRequest).json({
+        success: false,
+        message: 'Count must be between 1 and 5000',
+        errorCode: 'INVALID_COUNT',
+      });
+    }
+    if (batchSizeNum < 1 || batchSizeNum > 500) {
+      // logger.warn('Invalid batch size for bulk form creation', { batchSize: batchSizeNum, userId });
+      return res.status(httpsStatusCode.BadRequest).json({
+        success: false,
+        message: 'Batch size must be between 1 and 500',
+        errorCode: 'INVALID_BATCH_SIZE',
+      });
+    }
+
+    // Validate inputs
+    const organization = await organizationModel.findById(organizationId);
+    if (!organization) {
+      // logger.warn('Organization not found', { organizationId });
+      return res.status(httpsStatusCode.BadRequest).json({
+        success: false,
+        message: message.lblOrganizationNotFound,
+        errorCode: 'ORGANIZATION_NOT_FOUND',
+      });
+    }
+    const formSession = await sessionModel.findById(sessionId);
+    if (!formSession) {
+      // logger.warn('Session not found', { sessionId });
+      return res.status(httpsStatusCode.NotFound).json({
+        success: false,
+        message: message.lblSessionNotFound,
+        errorCode: 'SESSION_NOT_FOUND',
+      });
+    }
+    const user = await userModel.findById(userId);
+    let subscribed;
+    if (user.roleId !== 1) {
+      subscribed = await subscribedUserModel.findOne({ userId });
+      if (!subscribed) {
+        logger.warn('Subscribed user not found', { userId });
+        return res.status(httpsStatusCode.NotFound).json({
+          success: false,
+          message: message.lblSubscribedUserNotFound,
+          errorCode: 'SUBSCRIBED_NOT_FOUND',
+        });
+      }
+      if (subscribed.totalFormLimit < countNum) {
+        logger.warn('Form limit exceeded', { userId, totalFormLimit: subscribed.totalFormLimit, count: countNum });
+        return res.status(httpsStatusCode.Conflict).json({
+          success: false,
+          message: 'Form limit exceeded',
+          errorCode: 'FORM_LIMIT_EXCEDED',
+        });
+      }
+    }
+
+    // Create bulk job
+    const jobId = uuidv4();
+    await BulkJob.create({
+      jobId,
+      userId,
+      sessionId,
+      status: 'pending',
+      progress: 0,
+      totalForms: countNum,
+      processedForms: 0,
+    });
+    // logger.info('Bulk form creation job initiated', { jobId, sessionId, count: countNum });
+
+    // Process forms asynchronously
+    setImmediate(async () => {
+      try {
+        await BulkJob.updateOne({ jobId }, { status: 'processing' });
+        // logger.info('Started bulk form creation', { jobId, sessionId });
+
+        const file = req.files[0];
+        const basePhoneNum = parseInt(basePhone, 10);
+        if (isNaN(basePhoneNum)) {
+          throw new Error('basePhone must be a valid number');
+        }
+
+        let processedForms = 0;
+        const batchCount = Math.ceil(countNum / batchSizeNum);
+        let failedForms = 0;
+
+        for (let batchIndex = 0; batchIndex < batchCount; batchIndex++) {
+          const batchStart = batchIndex * batchSizeNum;
+          const batchEnd = Math.min(batchStart + batchSizeNum, countNum);
+          const batchForms = [];
+
+          // logger.info('Processing batch', { jobId, batchIndex, batchStart, batchEnd });
+
+          // Prepare forms for batch
+          for (let i = batchStart; i < batchEnd; i++) {
+            const phone = (basePhoneNum + i).toString().padStart(10, '0');
+            const fileSerialNumber = await commonFunction.getFileSerialNumber('fileSerialNumber');
+            const key = `form-dynamic-file/${organization.serialNumber}/${formSession.serialNumber}/${file.fieldname}/${fileSerialNumber}_${file.originalname.toLowerCase().replace(/[^a-zA-Z0-9.-]/g, '')}`;
+            const params = {
+              Bucket: process.env.DO_SPACES_BUCKET,
+              Key: key,
+              Body: file.buffer,
+              ContentType: file.mimetype,
+              ACL: 'public-read',
+            };
+
+            let fileData;
+            try {
+              const uploadResult = await s3.upload(params).promise();
+              fileData = {
+                fieldName: file.fieldname,
+                fileUrl: uploadResult.Location,
+                originalName: file.originalname,
+                mimeType: file.mimetype,
+                size: file.size,
+                // key,
+              };
+            } catch (uploadError) {
+              // logger.error('File upload failed in batch', { jobId, batchIndex, i, error: uploadError.message });
+              failedForms++;
+              continue;
+            }
+
+            const serialNumber = await commonFunction.getSerialNumber('form');
+            const password = `${firstName.substring(0, 2).toUpperCase()}${phone.substring(0, 3)}`;
+
+            const otherThanFiles = {
+              ["First Name"]: firstName,
+              ["Phone"]: phone
+            };
+
+            batchForms.push({
+              serialNumber,
+              password,
+              phone,
+              firstName,
+              sessionId,
+              userId,
+              organizationId,
+              otherThanFiles: otherThanFiles,
+              files: [fileData],
+            });
+          }
+
+          // Save batch with transaction
+          const session = await mongoose.startSession();
+          try {
+            await session.withTransaction(async () => {
+              await formDataModel.insertMany(batchForms, { session });
+              formSession.formReceived += batchForms.length;
+              await formSession.save({ session });
+              if (user.roleId !== 1) {
+                subscribed.totalFormLimit -= batchForms.length;
+                await subscribed.save({ session });
+              }
+            });
+            processedForms += batchForms.length;
+            const progress = Math.round((processedForms / countNum) * 100);
+            await BulkJob.updateOne({ jobId }, { progress, processedForms });
+            // logger.info('Batch processed', { jobId, batchIndex, batchForms: batchForms.length, progress });
+          } catch (error) {
+            // logger.error('Batch transaction failed', { jobId, batchIndex, error: error.message });
+            failedForms += batchForms.length;
+            await session.endSession();
+            continue;
+          } finally {
+            await session.endSession();
+          }
+
+          // Delay to avoid rate limiting
+          if (batchIndex < batchCount - 1) {
+            await new Promise(resolve => setTimeout(resolve, 1000));
+          }
+        }
+
+        const status = failedForms === 0 ? 'completed' : failedForms === countNum ? 'failed' : 'completed';
+        const errorMessage = failedForms > 0 ? `Failed to process ${failedForms} forms` : undefined;
+        await BulkJob.updateOne({ jobId }, {
+          status,
+          progress: 100,
+          processedForms,
+          errorMessage,
+        });
+        // logger.info('Bulk form creation completed', { jobId, processedForms, failedForms });
+      } catch (error) {
+        // logger.error('Bulk form creation failed', { jobId, error: error.message });
+        await BulkJob.updateOne({ jobId }, {
+          status: 'failed',
+          errorMessage: error.message || 'Failed to process bulk forms',
+        });
+      }
+    });
+
+    return res.status(httpsStatusCode.OK).json({
+      success: true,
+      message: 'Bulk form creation job initiated',
+      data: { jobId },
+    });
+  } catch (error) {
+    console.log('Bulk form creation initiation error', { error: error.message });
+    return res.status(httpsStatusCode.InternalServerError).json({
+      success: false,
+      message: 'Internal server error',
+      errorCode: 'SERVER_ERROR',
+    });
+  }
+};
+
+
 
 // update form old
 // exports.updateForm = async (req, res, next) => {
@@ -4554,213 +4782,6 @@ exports.getAllFormsBySession = async (req, res, next) => {
 
 // ---------- custom form file download controller starts here -------------
 
-// Download files by fieldName for a session
-exports.downloadFilesByField = async (req, res) => {
-  try {
-    const { sessionId, fieldName } = req.query;
-    const user = req.user;
-
-    if (!sessionId || !fieldName) {
-      logger.warn('Missing sessionId or fieldName', { userId: user._id });
-      return res.status(httpsStatusCode.BadRequest).json({
-        success: false,
-        message: 'sessionId and fieldName are required',
-        errorCode: 'FIELD_MISSING',
-      });
-    }
-
-    // Validate session
-    const session = await sessionModel.findById(sessionId);
-    if (!session) {
-      logger.warn('Session not found', { sessionId });
-      return res.status(httpsStatusCode.NotFound).json({
-        success: false,
-        message: message.lblSessionNotFound,
-        errorCode: 'SESSION_NOT_FOUND',
-      });
-    }
-
-    // Create download job
-    const jobId = uuidv4();
-    await DownloadJob.create({
-      jobId,
-      sessionId,
-      userId: user._id,
-      fieldName,
-      status: 'pending',
-      progress: 0,
-      // expiresAt: new Date(Date.now() + 7 * 24 * 3600 * 1000),
-      expiresAt: new Date(Date.now() + 2 * 60 * 1000)
-    });
-    console.log('Download job initiated', { jobId, sessionId, fieldName });
-
-    // Process download asynchronously
-    setImmediate(async () => {
-      try {
-        await DownloadJob.updateOne({ jobId }, { status: 'processing' });
-        console.log('Started ZIP generation', { jobId, sessionId, fieldName });
-
-        // Fetch forms with matching files (case-insensitive)
-        const newForms = await formDataModel
-          .find({
-            sessionId,
-            'files.fieldName': { $regex: `^${fieldName}$`, $options: 'i' },
-          })
-          .lean();
-
-
-        const forms = newForms.map((item) => {
-          const files = item.files;
-          const newFiles = files.map((f) => {
-            return {
-              ...f,
-              key: commonFunction.getRelativeFilePath(f?.fileUrl)
-            }
-          });
-          console.log("newFiles", newFiles);
-          return {
-            ...item,
-            files: [...newFiles]
-          }
-        });
-
-        console.log("newForms", newForms);
-        console.log("forms", forms);
-
-        const newFiles = forms
-          .flatMap((form) => form.files)
-          .filter((file) => file.fieldName.toLowerCase() === fieldName.toLowerCase());
-
-        const files = newFiles.map((item) => {
-          return { ...item, key: commonFunction.getRelativeFilePath(item?.fileUrl) }
-        });
-
-        console.log("files", files);
-        const totalFiles = files.length;
-
-        if (totalFiles === 0) {
-          await DownloadJob.updateOne({ jobId }, {
-            status: 'failed',
-            errorMessage: 'No files found for the specified field',
-          });
-          console.log('No files found for field', { jobId, sessionId, fieldName });
-          return;
-        }
-
-        // Create ZIP archive
-        const zipKey = `temp/zips/${jobId}_${fieldName}.zip`;
-        const archive = archiver('zip', { zlib: { level: 9 } });
-        const passThrough = new PassThrough();
-
-        const uploadParams = {
-          Bucket: process.env.DO_SPACES_BUCKET,
-          Key: zipKey,
-          Body: passThrough,
-          ContentType: 'application/zip',
-          ACL: 'private',
-        };
-        const upload = s3.upload(uploadParams);
-        archive.pipe(passThrough);
-        // Track progress
-        let processedFiles = 0;
-        archive.on('progress', ({ entries }) => {
-          processedFiles = entries.processed;
-          const progress = Math.round((processedFiles / totalFiles) * 100);
-          DownloadJob.updateOne({ jobId }, { progress }).catch((err) => {
-            console.log('Failed to update progress', { jobId, err })
-
-          }
-          );
-        });
-
-        // Add files to ZIP in batches
-        const batchSize = 100;
-        for (let i = 0; i < files.length; i += batchSize) {
-          const batch = files.slice(i, i + batchSize);
-          console.log("batch", batch);
-
-          for (const file of batch) {
-            if (!file.key || typeof file.key !== 'string' || file.key.trim() === '') {
-              console.log('Skipping file with invalid key', {
-                jobId,
-                formId: file._id,
-                fieldName: file.fieldName,
-                originalName: file.originalName,
-              });
-              continue;
-            }
-            try {
-              const form = forms.find((f) =>
-                f.files.some((f) => f.key === file.key)
-              );
-              const fileStream = s3.getObject({
-                Bucket: process.env.DO_SPACES_BUCKET,
-                Key: file.key,
-              }).createReadStream();
-              archive.append(fileStream, {
-                name: `${form.serialNumber}_${file.originalName.replace(/[^a-zA-Z0-9.-]/g, '')}`,
-              });
-            } catch (err) {
-              console.log('Failed to stream file', { jobId, key: file.key, err: err.message });
-              continue;
-            }
-          }
-        }
-
-        // Handle archiver errors
-        archive.on('error', (err) => {
-          console.log('Archiver error', { jobId, err: err.message });
-          throw err;
-        });
-
-        // Finalize ZIP
-        archive.finalize();
-        await upload.promise();
-        console.log('ZIP uploaded to Spaces', { jobId, zipKey, fieldName });
-
-        // Generate signed URL (7-day expiry)
-        const zipUrl = await s3.getSignedUrlPromise('getObject', {
-          Bucket: process.env.DO_SPACES_BUCKET,
-          Key: zipKey,
-          Expires: 7 * 24 * 3600,
-        });
-
-        // Update job status
-        await DownloadJob.updateOne(
-          { jobId },
-          {
-            status: 'completed',
-            progress: 100,
-            zipUrl,
-            expiresAt: new Date(Date.now() + 7 * 24 * 3600 * 1000),
-          }
-        );
-        console.log('Download job completed', { jobId, sessionId, fieldName });
-      } catch (error) {
-        console.log("error", error);
-
-        console.log('ZIP generation failed', { jobId, error: error.message });
-        await DownloadJob.updateOne({ jobId }, {
-          status: 'failed',
-          errorMessage: error.message || 'Failed to generate ZIP',
-        });
-      }
-    });
-
-    return res.status(httpsStatusCode.OK).json({
-      success: true,
-      message: 'Download job initiated',
-      data: { jobId },
-    });
-  } catch (error) {
-    console.log('Download initiation error', { error: error.message });
-    return res.status(httpsStatusCode.InternalServerError).json({
-      success: false,
-      message: 'Internal server error',
-      errorCode: 'SERVER_ERROR',
-    });
-  }
-};
 
 // Download all files for a session
 exports.downloadSessionFiles = async (req, res) => {
@@ -4912,6 +4933,477 @@ exports.downloadSessionFiles = async (req, res) => {
       message: 'Internal server error',
       errorCode: 'SERVER_ERROR',
     });
+  }
+};
+
+// Download files by fieldName for a session old
+// exports.downloadFilesByField = async (req, res) => {
+//   try {
+//     const { sessionId, fieldName } = req.query;
+//     const user = req.user;
+
+//     if (!sessionId || !fieldName) {
+//       logger.warn('Missing sessionId or fieldName', { userId: user._id });
+//       return res.status(httpsStatusCode.BadRequest).json({
+//         success: false,
+//         message: 'sessionId and fieldName are required',
+//         errorCode: 'FIELD_MISSING',
+//       });
+//     }
+
+//     // Validate session
+//     const session = await sessionModel.findById(sessionId);
+//     if (!session) {
+//       return res.status(httpsStatusCode.NotFound).json({
+//         success: false,
+//         message: message.lblSessionNotFound,
+//         errorCode: 'SESSION_NOT_FOUND',
+//       });
+//     }
+
+//     // Create download job
+//     const jobId = uuidv4();
+//     await DownloadJob.create({
+//       jobId,
+//       sessionId,
+//       userId: user._id,
+//       fieldName,
+//       status: 'pending',
+//       progress: 0,
+//       expiresAt: new Date(Date.now() + 7 * 24 * 3600 * 1000),
+//       // expiresAt: new Date(Date.now() + 2 * 60 * 1000)
+//     });
+//     // console.log('Download job initiated', { jobId, sessionId, fieldName });
+
+//     // Process download asynchronously
+//     setImmediate(async () => {
+//       try {
+//         await DownloadJob.updateOne({ jobId }, { status: 'processing' });
+//         // console.log('Started ZIP generation', { jobId, sessionId, fieldName });
+
+//         // Fetch forms with matching files (case-insensitive)
+//         const newForms = await formDataModel
+//           .find({
+//             sessionId,
+//             'files.fieldName': { $regex: `^${fieldName}$`, $options: 'i' },
+//           })
+//           .lean();
+
+
+//         const forms = newForms.map((item) => {
+//           const files = item.files;
+//           const newFiles = files.map((f) => {
+//             return {
+//               ...f,
+//               key: commonFunction.getRelativeFilePath(f?.fileUrl)
+//             }
+//           });
+//           // console.log("newFiles", newFiles);
+//           return {
+//             ...item,
+//             files: [...newFiles]
+//           }
+//         });
+
+//         // console.log("newForms", newForms);
+//         // console.log("forms", forms);
+
+//         const newFiles = forms
+//           .flatMap((form) => form.files)
+//           .filter((file) => file.fieldName.toLowerCase() === fieldName.toLowerCase());
+
+//         const files = newFiles.map((item) => {
+//           return { ...item, key: commonFunction.getRelativeFilePath(item?.fileUrl) }
+//         });
+
+//         // console.log("files", files);
+//         const totalFiles = files.length;
+
+//         if (totalFiles === 0) {
+//           await DownloadJob.updateOne({ jobId }, {
+//             status: 'failed',
+//             errorMessage: 'No files found for the specified field',
+//           });
+//           // console.log('No files found for field', { jobId, sessionId, fieldName });
+//           return;
+//         }
+
+//         // Create ZIP archive
+//         const zipKey = `temp/zips/${jobId}_${fieldName}.zip`;
+//         const archive = archiver('zip', { zlib: { level: 9 } });
+//         const passThrough = new PassThrough();
+
+//         const uploadParams = {
+//           Bucket: process.env.DO_SPACES_BUCKET,
+//           Key: zipKey,
+//           Body: passThrough,
+//           ContentType: 'application/zip',
+//           ACL: 'private',
+//         };
+//         const upload = s3.upload(uploadParams);
+//         archive.pipe(passThrough);
+//         // Track progress
+//         let processedFiles = 0;
+//         archive.on('progress', async ({ entries }) => {
+//           processedFiles = entries.processed;
+//           const progress = Math.round((processedFiles / totalFiles) * 100);
+//           await DownloadJob.updateOne({ jobId }, { progress }).catch((err) => {
+//             // console.log('Failed to update progress', { jobId, err })
+
+//           }
+//           );
+//         });
+
+//         // Add files to ZIP in batches
+//         const batchSize = 100;
+//         for (let i = 0; i < files.length; i += batchSize) {
+//           const batch = files.slice(i, i + batchSize);
+//           // console.log("batch", batch);
+
+//           for (const file of batch) {
+//             if (!file.key || typeof file.key !== 'string' || file.key.trim() === '') {
+//               console.log('Skipping file with invalid key', {
+//                 jobId,
+//                 formId: file._id,
+//                 fieldName: file.fieldName,
+//                 originalName: file.originalName,
+//               });
+//               continue;
+//             }
+//             try {
+//               const form = forms.find((f) =>
+//                 f.files.some((f) => f.key === file.key)
+//               );
+//               const fileStream = s3.getObject({
+//                 Bucket: process.env.DO_SPACES_BUCKET,
+//                 Key: file.key,
+//               }).createReadStream();
+//               // old
+//               // archive.append(fileStream, {
+//               //   name: `${form.serialNumber}_${file.originalName.replace(/[^a-zA-Z0-9.-]/g, '')}`,
+//               // });
+
+//               // new
+
+
+//               const name = file.fileUrl.substring(file.fileUrl.lastIndexOf('/') + 1);
+//               archive.append(fileStream, {
+//                 name: `${name}`,
+//               });
+
+
+//             } catch (err) {
+//               console.log('Failed to stream file', { jobId, key: file.key, err: err.message });
+//               continue;
+//             }
+//           }
+//         }
+
+//         // Handle archiver errors
+//         archive.on('error', (err) => {
+//           console.log('Archiver error', { jobId, err: err.message });
+//           throw err;
+//         });
+
+//         // Finalize ZIP
+//         archive.finalize();
+//         await upload.promise();
+//         console.log('ZIP uploaded to Spaces', { jobId, zipKey, fieldName });
+
+//         // Generate signed URL (7-day expiry)
+//         const zipUrl = await s3.getSignedUrlPromise('getObject', {
+//           Bucket: process.env.DO_SPACES_BUCKET,
+//           Key: zipKey,
+//           Expires: 7 * 24 * 3600,
+//         });
+
+//         // Update job status
+//         await DownloadJob.updateOne(
+//           { jobId },
+//           {
+//             status: 'completed',
+//             progress: 100,
+//             zipUrl,
+//             expiresAt: new Date(Date.now() + 7 * 24 * 3600 * 1000),
+//           }
+//         );
+//         // console.log('Download job completed', { jobId, sessionId, fieldName });
+//       } catch (error) {
+//         console.log("error", error);
+
+//         // console.log('ZIP generation failed', { jobId, error: error.message });
+//         await DownloadJob.updateOne({ jobId }, {
+//           status: 'failed',
+//           errorMessage: error.message || 'Failed to generate ZIP',
+//         });
+//       }
+//     });
+
+//     return res.status(httpsStatusCode.OK).json({
+//       success: true,
+//       message: 'Download job initiated',
+//       data: { jobId },
+//     });
+//   } catch (error) {
+//     console.log('Download initiation error', { error: error.message });
+//     return res.status(httpsStatusCode.InternalServerError).json({
+//       success: false,
+//       message: 'Internal server error',
+//       errorCode: 'SERVER_ERROR',
+//     });
+//   }
+// };
+
+// Download files by fieldName for a session new
+exports.downloadFilesByField = async (req, res) => {
+  try {
+    const { sessionId, fieldName } = req.query;
+    const user = req.user;
+
+    if (!sessionId || !fieldName) {
+      // logger.warn('Missing sessionId or fieldName', { userId: user._id });
+      return res.status(httpsStatusCode.BadRequest).json({
+        success: false,
+        message: 'sessionId and fieldName are required',
+        errorCode: 'FIELD_MISSING',
+      });
+    }
+
+    // Validate session
+    const session = await sessionModel.findById(sessionId);
+    if (!session) {
+      // logger.warn('Session not found', { sessionId });
+      return res.status(httpsStatusCode.NotFound).json({
+        success: false,
+        message: message.lblSessionNotFound,
+        errorCode: 'SESSION_NOT_FOUND',
+      });
+    }
+
+    console.log("session",session);
+    
+
+    // Fetch forms with matching files (case-insensitive)
+    const newForms = await formDataModel
+      .find({
+        sessionId,
+        'files.fieldName': { $regex: `^${fieldName}$`, $options: 'i' },
+      })
+      .lean();
+    const forms = newForms.map((item) => {
+      const files = item.files;
+      const newFiles = files.map((f) => {
+        return {
+          ...f,
+          key: commonFunction.getRelativeFilePath(f?.fileUrl)
+        }
+      });
+      // console.log("newFiles", newFiles);
+      return {
+        ...item,
+        files: [...newFiles]
+      }
+    });
+
+    // console.log("forms",forms);
+    
+
+    const newFiles = forms
+      .flatMap((form) => form.files)
+      .filter((file) => file.fieldName.toLowerCase() === fieldName.toLowerCase());
+
+    const files = newFiles.map((item) => {
+      return { ...item, key: commonFunction.getRelativeFilePath(item?.fileUrl) }
+    });
+    const totalFiles = files.length;
+
+    // console.log("files",files);
+    
+
+    if (totalFiles === 0) {
+      // logger.warn('No files found for field', { sessionId, fieldName });
+      return res.status(httpsStatusCode.NotFound).json({
+        success: false,
+        message: 'No files found for the specified field',
+        errorCode: 'NO_FILES_FOUND',
+      });
+    }
+
+    // Create download job for progress tracking
+    const jobId = uuidv4();
+    await DownloadJob.create({
+      jobId,
+      sessionId,
+      userId: user._id,
+      fieldName,
+      status: 'pending',
+      progress: 0,
+      expiresAt: new Date(Date.now() + 7 * 24 * 3600 * 1000),
+    });
+    console.log('Download job initiated', { jobId, sessionId, fieldName, totalFiles });
+
+    req.app.get('emitProgressUpdate')(jobId);
+
+    // Set response headers for streaming
+    const zipFileName = `${fieldName.replace(/[^a-zA-Z0-9]/g, '_')}_${Date.now()}.zip`;
+    res.set({
+      'Content-Type': 'application/zip',
+      'Content-Disposition': `attachment; filename="${zipFileName}"`,
+      'Transfer-Encoding': 'chunked',
+      'X-Job-Id': jobId, // For frontend to poll progress
+    });
+
+
+   
+    // console.log("response", res);
+    
+
+    // Create ZIP archive
+    const archive = archiver('zip', {
+      zlib: { level: 9 },
+      highWaterMark: 16 * 1024, // 16KB buffer for backpressure
+    });
+
+    // Track progress
+    let processedFiles = 0;
+    archive.on('progress', ({ entries }) => {
+      processedFiles = entries.processed;
+      const progress = Math.round((processedFiles / totalFiles) * 100);
+      DownloadJob.updateOne({ jobId }, { progress })
+        .catch((err) => console.log('Failed to update progress', { jobId, err: err.message }));
+        req.app.get('emitProgressUpdate')(jobId);
+    });
+
+    // console.log("processedFiles",processedFiles);
+    
+
+    // Handle stream errors
+    archive.on('error', (err) => {
+      // logger.error('Archiver error', { jobId, err: err.message });
+      DownloadJob.updateOne({ jobId }, {
+        status: 'failed',
+        errorMessage: err.message || 'Failed to generate ZIP',
+      }).catch((err) => console.log('Failed to update job status', { jobId, err: err.message }));
+      req.app.get('emitProgressUpdate')(jobId);
+      if (!res.headersSent) {
+        res.status(httpsStatusCode.InternalServerError).json({
+          success: false,
+          message: 'Failed to generate ZIP',
+          errorCode: 'ZIP_GENERATION_FAILED',
+        });
+      } else {
+        res.destroy();
+      }
+    });
+
+    // Handle client disconnection
+    req.on('close', () => {
+      // logger.info('Client disconnected during download', { jobId });
+      archive.abort();
+      DownloadJob.updateOne({ jobId }, {
+        status: 'failed',
+        errorMessage: 'Download cancelled by client',
+      }).catch((err) => console.log('Failed to update job status', { jobId, err: err.message }));
+      req.app.get('emitProgressUpdate')(jobId);
+    });
+
+    // Start streaming
+   await DownloadJob.updateOne({ jobId }, { status: 'processing' });
+   req.app.get('emitProgressUpdate')(jobId);
+    // logger.info('Started ZIP streaming', { jobId, sessionId, fieldName });
+
+    // Pipe archive to response with pipeline for backpressure
+    pipeline(archive, res, (err) => {
+      if (err) {
+        console.log('Pipeline error', { jobId, err: err.message });
+        DownloadJob.updateOne({ jobId }, {
+          status: 'failed',
+          errorMessage: err.message || 'Streaming failed',
+        }).catch((err) => console.log('Failed to update job status', { jobId, err: err.message }));
+        req.app.get('emitProgressUpdate')(jobId);
+      }
+    });
+
+    // Add files to ZIP in batches
+    const batchSize = 50; // Smaller batch for memory efficiency
+    for (let i = 0; i < files.length; i += batchSize) {
+      const batch = files.slice(i, i + batchSize);
+      // logger.info('Processing batch', { jobId, batchIndex: i / batchSize, batchSize: batch.length });
+
+      for (const file of batch) {
+        if (!file.key || typeof file.key !== 'string' || file.key.trim() === '') {
+          console.log('Skipping file with invalid key', {
+            jobId,
+            formId: file._id,
+            fieldName: file.fieldName,
+            originalName: file.originalName,
+          });
+          continue;
+        }
+
+        try {
+          const fileStream = s3.getObject({
+            Bucket: process.env.DO_SPACES_BUCKET,
+            Key: file.key,
+          }).createReadStream();
+
+          fileStream.on('error', (err) => {
+            console.log('File stream error', { jobId, key: file.key, err: err.message });
+          });
+
+          const name = file.fileUrl.substring(file.fileUrl.lastIndexOf('/') + 1);
+          archive.append(fileStream, { name });
+        } catch (err) {
+          console.log('Failed to stream file', { jobId, key: file.key, err: err.message });
+          continue;
+        }
+      }
+
+      // Delay to manage backpressure
+      if (i + batchSize < files.length) {
+        await new Promise(resolve => setTimeout(resolve, 100));
+      }
+    }
+
+    // Finalize ZIP
+    archive.finalize()
+      .then(() => {
+        // logger.info('ZIP streaming completed', { jobId, fieldName, processedFiles });
+        DownloadJob.updateOne({ jobId }, {
+          status: 'completed',
+          progress: 100,
+        }).catch((err) => console.log('Failed to update job status', { jobId, err: err.message }));
+        req.app.get('emitProgressUpdate')(jobId);
+      })
+      .catch((err) => {
+        // logger.error('ZIP finalization failed', { jobId, err: err.message });
+        DownloadJob.updateOne({ jobId }, {
+          status: 'failed',
+          errorMessage: err.message || 'Failed to finalize ZIP',
+        }).catch((err) => console.log('Failed to update job status', { jobId, err: err.message }));
+        req.app.get('emitProgressUpdate')(jobId);
+      });
+
+    // Monitor memory usage
+    const memoryUsage = process.memoryUsage().heapUsed / 1024 / 1024;
+    console.log('Memory usage during streaming', { jobId, memoryMB: memoryUsage.toFixed(2) });
+
+
+    //  return res.status(httpsStatusCode.OK).json({
+    //     success: true,
+    //     message: 'success',
+    //     errorCode: 'SUCCESS',
+    //   });
+
+  } catch (error) {
+    console.log('Download initiation error', { error: error.message });
+    if (!res.headersSent) {
+      return res.status(httpsStatusCode.InternalServerError).json({
+        success: false,
+        message: 'Internal server error',
+        errorCode: 'SERVER_ERROR',
+      });
+    }
   }
 };
 

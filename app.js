@@ -6,14 +6,19 @@ const cors = require('cors');
 const path = require('path');
 const errorHandler = require('./middleware/errorHandler/errorHandler');
 const { identifyCompany } = require("./utils/commonFunction");
-const morgan = require("morgan")
+const morgan = require("morgan");
+// const { Server } = require('socket.io');
+// const http = require('http');
 
 
 // Custom modules
 const connectDb = require('./connection/connectionDb');
 
 // Initialize Express app
-const app = express();
+const { app, server, io } = require("./socket/socket.js") ;
+
+
+
 
 // Constants
 const PORT = process.env.PORT || 8080;
@@ -33,6 +38,7 @@ const authRouter = require("./commonAuthentication/routes/auth.routes");
 const superAdminAdministrationhRouter = require("./superAdminAdministration/routes/superAdmin.routes");
 const adminRouter = require("./adminAdministration/routes/admin.routes");
 const scheduleZipCleanup = require('./utils/cron');
+const DownloadJob = require('./model/downloadJob.model');
 
 // Middleware setup
 app.use(cors({
@@ -43,6 +49,30 @@ app.use(cors({
     credentials: true, // If you need to support cookies/auth
 }));
 
+
+
+// // WebSocket connection
+// io.on('connection', (socket) => {
+//   console.log('Client connected:', socket.id);
+
+//   // Authenticate client with userId and jobId
+//   socket.on('joinDownload', ({ userId, jobId }) => {
+//     socket.join(`user:${userId}`);
+//     if (jobId) {
+//       socket.join(`job:${jobId}`);
+//     }
+//     console.log(`Client ${socket.id} joined user:${userId}, job:${jobId}`);
+//   });
+
+//   socket.on('disconnect', () => {
+//     console.log('Client disconnected:', socket.id);
+//   });
+// });
+
+app.use((req, res, next) => {
+  console.log("Unknown route", req.url);
+  next();
+});
 
 app.use(express.json()); // Parse JSON bodies
 app.use(express.urlencoded({ extended: true })); // Parse URL-encoded bodies
@@ -66,9 +96,31 @@ app.use("/api/auth", authRouter.router);
 app.use("/api/superadmin/administration", superAdminAdministrationhRouter.router);
 app.use("/api/admin", adminRouter.router);
 
+
+
+// // Function to emit progress updates
+async function emitProgressUpdate(jobId) {
+  try {
+    const job = await DownloadJob.findOne({ jobId }).lean();
+    if (job) {
+      io.to(`job:${jobId}`).emit('downloadProgress', {
+        jobId: job.jobId,
+        status: job.status,
+        progress: job.progress,
+        fieldName: job.fieldName,
+        errorMessage: job.errorMessage,
+      });
+    }
+  } catch (err) {
+    console.error('Failed to emit progress:', err.message);
+  }
+}
+
+app.set('emitProgressUpdate', emitProgressUpdate);
+
 // Start server function
 const startServer = async () => {
-    let server; // Declare server variable in outer scope
+    // let server; // Declare server variable in outer scope
     try {
         // Connect to database
         await connectDb(DATABASE_URL);
@@ -82,7 +134,7 @@ const startServer = async () => {
         // scheduleZipCleanup(); //  Start your cron after DB connection
 
         // Start Express server
-        server = app.listen(PORT, () => {
+        server.listen(PORT, () => {
             console.log(`Server started successfully on port ${PORT}`);
         });
 
@@ -133,6 +185,9 @@ const startServer = async () => {
         }
     });
 };
+
+
+
 
 // Execute server startup
 startServer();
