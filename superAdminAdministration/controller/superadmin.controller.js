@@ -29,7 +29,7 @@ const AWS = require('aws-sdk');
 const archiver = require('archiver');
 const { v4: uuidv4 } = require('uuid');
 const DownloadJob = require("../../model/downloadJob.model");
-const { PassThrough, pipeline } = require('stream');
+const { PassThrough, pipeline, Transform } = require('stream');
 const BulkJob = require("../../model/bulkJob.model");
 
 
@@ -41,9 +41,10 @@ const s3 = new AWS.S3({
   endpoint: spacesEndpoint,
   accessKeyId: process.env.DO_SPACES_KEY,
   secretAccessKey: process.env.DO_SPACES_SECRET,
-  // s3ForcePathStyle: true,
-  // maxRetries: 3,
-  // retryDelayOptions: { base: 200 },
+  s3ForcePathStyle: true,
+  maxRetries: 5,
+  retryDelayOptions: { base: 500 },
+  httpOptions: { timeout: 60000 },
 });
 
 
@@ -5157,8 +5158,11 @@ exports.downloadSessionFiles = async (req, res) => {
 // Download files by fieldName for a session new
 exports.downloadFilesByField = async (req, res) => {
   try {
-    const { sessionId, fieldName } = req.query;
+    const { sessionId, fieldName, uniqueId } = req.query;
     const user = req.user;
+
+    console.log("uniqueId", uniqueId);
+
 
     if (!sessionId || !fieldName) {
       // logger.warn('Missing sessionId or fieldName', { userId: user._id });
@@ -5180,8 +5184,6 @@ exports.downloadFilesByField = async (req, res) => {
       });
     }
 
-    console.log("session",session);
-    
 
     // Fetch forms with matching files (case-insensitive)
     const newForms = await formDataModel
@@ -5206,7 +5208,7 @@ exports.downloadFilesByField = async (req, res) => {
     });
 
     // console.log("forms",forms);
-    
+
 
     const newFiles = forms
       .flatMap((form) => form.files)
@@ -5218,7 +5220,7 @@ exports.downloadFilesByField = async (req, res) => {
     const totalFiles = files.length;
 
     // console.log("files",files);
-    
+
 
     if (totalFiles === 0) {
       // logger.warn('No files found for field', { sessionId, fieldName });
@@ -5230,7 +5232,7 @@ exports.downloadFilesByField = async (req, res) => {
     }
 
     // Create download job for progress tracking
-    const jobId = uuidv4();
+    const jobId = uniqueId;
     await DownloadJob.create({
       jobId,
       sessionId,
@@ -5251,39 +5253,60 @@ exports.downloadFilesByField = async (req, res) => {
       'Content-Disposition': `attachment; filename="${zipFileName}"`,
       'Transfer-Encoding': 'chunked',
       'X-Job-Id': jobId, // For frontend to poll progress
+      'Access-Control-Expose-Headers': 'X-Job-Id',
     });
 
 
-   
+
     // console.log("response", res);
-    
+
 
     // Create ZIP archive
     const archive = archiver('zip', {
       zlib: { level: 9 },
-      highWaterMark: 16 * 1024, // 16KB buffer for backpressure
+      highWaterMark: 128 * 1024, // 128KB buffer for backpressure
     });
 
-    // Track progress
+    // Backpressure transform stream
+    const backpressureTransform = new Transform({
+      highWaterMark: 512 * 1024,
+      transform(chunk, encoding, callback) {
+        const bufferSize = this.writableLength;
+        if (bufferSize > 1024 * 1024) { // 1MB threshold
+          console.log('Backpressure detected', { jobId, bufferSize });
+          setTimeout(() => callback(null, chunk), 100); // Longer pause
+        } else {
+          callback(null, chunk);
+        }
+      },
+    });
+
+    // Track progress old
     let processedFiles = 0;
     archive.on('progress', ({ entries }) => {
       processedFiles = entries.processed;
       const progress = Math.round((processedFiles / totalFiles) * 100);
-      DownloadJob.updateOne({ jobId }, { progress })
-        .catch((err) => console.log('Failed to update progress', { jobId, err: err.message }));
+      req.app.get('emitProgresLive')({ jobId: jobId, userId: user._id.toString(), status: "processing", progress: progress, fieldName: fieldName, errorMessage: "None" });
+      if (progress == 100) {
+        DownloadJob.updateOne({ jobId }, { progress, status: "completed" })
+          .catch((err) => console.log('Failed to update progress', { jobId, err: err.message }));
         req.app.get('emitProgressUpdate')(jobId);
+      }
+
     });
 
+
+
     // console.log("processedFiles",processedFiles);
-    
+
 
     // Handle stream errors
     archive.on('error', (err) => {
-      // logger.error('Archiver error', { jobId, err: err.message });
+      console.error('Archiver error', { jobId, err: err.message });
       DownloadJob.updateOne({ jobId }, {
         status: 'failed',
         errorMessage: err.message || 'Failed to generate ZIP',
-      }).catch((err) => console.log('Failed to update job status', { jobId, err: err.message }));
+      }).catch((err) => console.error('Failed to update job status', { jobId, err: err.message }));
       req.app.get('emitProgressUpdate')(jobId);
       if (!res.headersSent) {
         res.status(httpsStatusCode.InternalServerError).json({
@@ -5298,96 +5321,120 @@ exports.downloadFilesByField = async (req, res) => {
 
     // Handle client disconnection
     req.on('close', () => {
-      // logger.info('Client disconnected during download', { jobId });
+      console.log('Client disconnected during download', { jobId });
       archive.abort();
       DownloadJob.updateOne({ jobId }, {
         status: 'failed',
         errorMessage: 'Download cancelled by client',
-      }).catch((err) => console.log('Failed to update job status', { jobId, err: err.message }));
+      }).catch((err) => console.error('Failed to update job status', { jobId, err: err.message }));
       req.app.get('emitProgressUpdate')(jobId);
     });
 
     // Start streaming
-   await DownloadJob.updateOne({ jobId }, { status: 'processing' });
-   req.app.get('emitProgressUpdate')(jobId);
+    await DownloadJob.updateOne({ jobId }, { status: 'processing' });
+    req.app.get('emitProgressUpdate')(jobId);
     // logger.info('Started ZIP streaming', { jobId, sessionId, fieldName });
 
-    // Pipe archive to response with pipeline for backpressure
-    pipeline(archive, res, (err) => {
+    // Pipe archive through backpressure transform
+    pipeline(archive, backpressureTransform, res, (err) => {
       if (err) {
-        console.log('Pipeline error', { jobId, err: err.message });
+        console.error('Pipeline error', { jobId, err: err.message });
         DownloadJob.updateOne({ jobId }, {
           status: 'failed',
           errorMessage: err.message || 'Streaming failed',
-        }).catch((err) => console.log('Failed to update job status', { jobId, err: err.message }));
+        }).catch((err) => console.error('Failed to update job status', { jobId, err: err.message }));
         req.app.get('emitProgressUpdate')(jobId);
       }
     });
 
-    // Add files to ZIP in batches
-    const batchSize = 50; // Smaller batch for memory efficiency
+    const batchSize = 5; // Increased for better throughput
     for (let i = 0; i < files.length; i += batchSize) {
       const batch = files.slice(i, i + batchSize);
-      // logger.info('Processing batch', { jobId, batchIndex: i / batchSize, batchSize: batch.length });
+      console.log('Processing batch', { jobId, batchIndex: i / batchSize, batchSize: batch.length });
 
-      for (const file of batch) {
-        if (!file.key || typeof file.key !== 'string' || file.key.trim() === '') {
-          console.log('Skipping file with invalid key', {
-            jobId,
-            formId: file._id,
-            fieldName: file.fieldName,
-            originalName: file.originalName,
-          });
-          continue;
-        }
+      await Promise.all(
+        batch.map(async (file) => {
+          if (!file.key || typeof file.key !== 'string' || file.key.trim() === '') {
+            console.log('Skipping file with invalid key', {
+              jobId,
+              formId: file._id,
+              fieldName: file.fieldName,
+              originalName: file.originalName,
+            });
+            return;
+          }
 
-        try {
-          const fileStream = s3.getObject({
-            Bucket: process.env.DO_SPACES_BUCKET,
-            Key: file.key,
-          }).createReadStream();
+          for (let attempt = 1; attempt <= 5; attempt++) {
+            try {
+              const fileStream = s3.getObject({
+                Bucket: process.env.DO_SPACES_BUCKET,
+                Key: file.key,
+              }).createReadStream();
 
-          fileStream.on('error', (err) => {
-            console.log('File stream error', { jobId, key: file.key, err: err.message });
-          });
+              fileStream.on('error', (err) => {
+                console.error('File stream error', { jobId, key: file.key, attempt, err: err.message });
+              });
 
-          const name = file.fileUrl.substring(file.fileUrl.lastIndexOf('/') + 1);
-          archive.append(fileStream, { name });
-        } catch (err) {
-          console.log('Failed to stream file', { jobId, key: file.key, err: err.message });
-          continue;
-        }
-      }
+              const name = file.fileUrl.substring(file.fileUrl.lastIndexOf('/') + 1);
+              archive.append(fileStream, { name });
+              break; // Success, exit retry loop
+            } catch (err) {
+              console.error('Failed to stream file', { jobId, key: file.key, attempt, err: err.message });
+              if (attempt === 3) {
+                console.error('Max retries reached for file', { jobId, key: file.key });
+              }
+              await new Promise((resolve) => setTimeout(resolve, 500 * attempt)); // Exponential backoff
+            }
+          }
+        })
+      );
 
-      // Delay to manage backpressure
+      // Dynamic backpressure delay
       if (i + batchSize < files.length) {
-        await new Promise(resolve => setTimeout(resolve, 100));
+        await new Promise((resolve) => {
+          const checkBackpressure = () => {
+            if (backpressureTransform.writableLength < 1024 * 1024) {
+              resolve();
+            } else {
+              setTimeout(checkBackpressure, 50);
+            }
+          };
+          checkBackpressure();
+        });
       }
     }
 
     // Finalize ZIP
     archive.finalize()
       .then(() => {
-        // logger.info('ZIP streaming completed', { jobId, fieldName, processedFiles });
+        console.log('ZIP streaming completed', { jobId, fieldName, processedFiles });
         DownloadJob.updateOne({ jobId }, {
           status: 'completed',
           progress: 100,
-        }).catch((err) => console.log('Failed to update job status', { jobId, err: err.message }));
+        }).catch((err) => console.error('Failed to update job status', { jobId, err: err.message }));
         req.app.get('emitProgressUpdate')(jobId);
       })
       .catch((err) => {
-        // logger.error('ZIP finalization failed', { jobId, err: err.message });
+        console.error('ZIP finalization failed', { jobId, err: err.message });
         DownloadJob.updateOne({ jobId }, {
           status: 'failed',
           errorMessage: err.message || 'Failed to finalize ZIP',
-        }).catch((err) => console.log('Failed to update job status', { jobId, err: err.message }));
+        }).catch((err) => console.error('Failed to update job status', { jobId, err: err.message }));
         req.app.get('emitProgressUpdate')(jobId);
       });
 
-    // Monitor memory usage
-    const memoryUsage = process.memoryUsage().heapUsed / 1024 / 1024;
-    console.log('Memory usage during streaming', { jobId, memoryMB: memoryUsage.toFixed(2) });
+    // Monitor memory usage periodically
+    const memoryInterval = setInterval(() => {
+      const memoryUsage = process.memoryUsage().heapUsed / 1024 / 1024;
+      console.log('Memory usage during streaming', { jobId, memoryMB: memoryUsage.toFixed(2) });
+      if (memoryUsage > 1000) {
+        console.warn('High memory usage detected', { jobId, memoryMB: memoryUsage.toFixed(2) });
+      }
+    }, 5000);
 
+    archive.on('end', () => clearInterval(memoryInterval));
+    archive.on('error', () => clearInterval(memoryInterval));
+    req.on('close', () => clearInterval(memoryInterval));
 
     //  return res.status(httpsStatusCode.OK).json({
     //     success: true,

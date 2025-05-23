@@ -116,7 +116,31 @@ async function emitProgressUpdate(jobId) {
   }
 }
 
+
+
+// // Function to emit progress updates
+async function emitProgresLive(data) {
+  try {
+    // const job = await DownloadJob.findOne({ jobId }).lean();
+    if (data) {
+        // console.log("data 111",data);
+         
+      io.to(`job:${data.jobId}`).emit('downloadProgressLive', {
+        jobId: data.jobId,
+        status: data.status,
+        progress: data.progress,
+        fieldName: data.fieldName,
+        errorMessage: data.errorMessage,
+      });
+    }
+  } catch (err) {
+    console.error('Failed to emit live progress:', err.message);
+  }
+}
+
+
 app.set('emitProgressUpdate', emitProgressUpdate);
+app.set('emitProgresLive', emitProgresLive);
 
 // Start server function
 const startServer = async () => {
