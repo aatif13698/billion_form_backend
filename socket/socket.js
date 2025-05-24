@@ -11,7 +11,7 @@ const server = http.createServer(app);
 
 const io = new Server(server, {
     cors: {
-        // path: '/api/socket.io',
+        path: '/api/socket.io',
         // origin: process.env.NODE_ENV === 'development' ? '*' : 'https://aestree.in',
         origin: '*',
         methods: ['GET', 'POST']
