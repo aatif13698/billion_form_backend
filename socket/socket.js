@@ -1,6 +1,8 @@
 const { Server } = require("socket.io");
 const express = require("express");
-const http = require("http")
+const http = require("http");
+require('dotenv').config(); // Load environment variables first
+
 
 
 const app = express();
@@ -9,7 +11,7 @@ const server = http.createServer(app);
 
 const io = new Server(server, {
     cors: {
-        origin: '*',
+       origin: process.env.NODE_ENV === 'development' ? '*' : 'https://*.aestree.in',
         methods: ['GET', 'POST']
         // credentials: true,
     },
