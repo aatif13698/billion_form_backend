@@ -7,15 +7,15 @@ const path = require('path');
 const errorHandler = require('./middleware/errorHandler/errorHandler');
 const { identifyCompany } = require("./utils/commonFunction");
 const morgan = require("morgan");
-// const { Server } = require('socket.io');
-// const http = require('http');
+const { Server } = require('socket.io');
+const http = require('http');
 
 
 // Custom modules
 const connectDb = require('./connection/connectionDb');
 
 // Initialize Express app
-const { app, server, io } = require("./socket/socket.js") ;
+// const { app, server, io } = require("./socket/socket.js") ;
 
 
 
@@ -40,6 +40,9 @@ const adminRouter = require("./adminAdministration/routes/admin.routes");
 const scheduleZipCleanup = require('./utils/cron');
 const DownloadJob = require('./model/downloadJob.model');
 
+const app = express();
+
+
 // Middleware setup
 app.use(cors({
     // origin: process.env.NODE_ENV === 'development' ? '*' : 'https://*.aestree.in',
@@ -48,6 +51,39 @@ app.use(cors({
     allowedHeaders: ['Content-Type', 'Authorization'],
     credentials: true, // If you need to support cookies/auth
 }));
+
+
+
+const server = http.createServer(app);
+
+const io = new Server(server, {
+    cors: {
+        path: '/api/socket.io',
+        // origin: process.env.NODE_ENV === 'development' ? '*' : 'https://aestree.in',
+        origin: '*',
+        methods: ['GET', 'POST']
+        // credentials: true,
+    },
+})
+
+
+io.on("connection", (socket) => {
+    console.log("connecting socket");
+
+    socket.on('joinDownload', ({ userId, jobId }) => {
+        socket.join(`user:${userId}`);
+        if (jobId) {
+            socket.join(`job:${jobId}`);
+        }
+        console.log(`Client ${socket.id} joined user:${userId}, job:${jobId}`);
+    });
+    // Handle disconnect event
+    socket.on("disconnect", () => {
+        console.log("Client disconnected");
+    });
+
+
+});
 
 
 
