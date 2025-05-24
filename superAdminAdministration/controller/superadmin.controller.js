@@ -5273,7 +5273,7 @@ exports.downloadFilesByField = async (req, res) => {
       transform(chunk, encoding, callback) {
         const bufferSize = this.writableLength;
         if (bufferSize > 1024 * 1024) { // 1MB threshold
-          console.log('Backpressure detected', { jobId, bufferSize });
+          // console.log('Backpressure detected', { jobId, bufferSize });
           setTimeout(() => callback(null, chunk), 100); // Longer pause
         } else {
           callback(null, chunk);
@@ -5350,17 +5350,17 @@ exports.downloadFilesByField = async (req, res) => {
     const batchSize = 5; // Increased for better throughput
     for (let i = 0; i < files.length; i += batchSize) {
       const batch = files.slice(i, i + batchSize);
-      console.log('Processing batch', { jobId, batchIndex: i / batchSize, batchSize: batch.length });
+      // console.log('Processing batch', { jobId, batchIndex: i / batchSize, batchSize: batch.length });
 
       await Promise.all(
         batch.map(async (file) => {
           if (!file.key || typeof file.key !== 'string' || file.key.trim() === '') {
-            console.log('Skipping file with invalid key', {
-              jobId,
-              formId: file._id,
-              fieldName: file.fieldName,
-              originalName: file.originalName,
-            });
+            // console.log('Skipping file with invalid key', {
+            //   jobId,
+            //   formId: file._id,
+            //   fieldName: file.fieldName,
+            //   originalName: file.originalName,
+            // });
             return;
           }
 
@@ -5372,16 +5372,16 @@ exports.downloadFilesByField = async (req, res) => {
               }).createReadStream();
 
               fileStream.on('error', (err) => {
-                console.error('File stream error', { jobId, key: file.key, attempt, err: err.message });
+                // console.error('File stream error', { jobId, key: file.key, attempt, err: err.message });
               });
 
               const name = file.fileUrl.substring(file.fileUrl.lastIndexOf('/') + 1);
               archive.append(fileStream, { name });
               break; // Success, exit retry loop
             } catch (err) {
-              console.error('Failed to stream file', { jobId, key: file.key, attempt, err: err.message });
+              // console.error('Failed to stream file', { jobId, key: file.key, attempt, err: err.message });
               if (attempt === 3) {
-                console.error('Max retries reached for file', { jobId, key: file.key });
+                // console.error('Max retries reached for file', { jobId, key: file.key });
               }
               await new Promise((resolve) => setTimeout(resolve, 500 * attempt)); // Exponential backoff
             }
@@ -5415,7 +5415,7 @@ exports.downloadFilesByField = async (req, res) => {
         req.app.get('emitProgressUpdate')(jobId);
       })
       .catch((err) => {
-        console.error('ZIP finalization failed', { jobId, err: err.message });
+        // console.error('ZIP finalization failed', { jobId, err: err.message });
         DownloadJob.updateOne({ jobId }, {
           status: 'failed',
           errorMessage: err.message || 'Failed to finalize ZIP',
@@ -5426,9 +5426,9 @@ exports.downloadFilesByField = async (req, res) => {
     // Monitor memory usage periodically
     const memoryInterval = setInterval(() => {
       const memoryUsage = process.memoryUsage().heapUsed / 1024 / 1024;
-      console.log('Memory usage during streaming', { jobId, memoryMB: memoryUsage.toFixed(2) });
+      // console.log('Memory usage during streaming', { jobId, memoryMB: memoryUsage.toFixed(2) });
       if (memoryUsage > 1000) {
-        console.warn('High memory usage detected', { jobId, memoryMB: memoryUsage.toFixed(2) });
+        // console.warn('High memory usage detected', { jobId, memoryMB: memoryUsage.toFixed(2) });
       }
     }, 5000);
 
