@@ -188,6 +188,7 @@ module.exports = {
   lblFormUpdatedSuccess: "Form updated successfully!",
   lblFormFoundSuccessfully: "Form found successfully!",
   lblFormSoftDeletedSuccess: "Form soft deleted successfully!",
+  lblFormDeletedSuccess: "Form deleted successfully!",
   lblFormRestoredSuccess: "Form restored succesfully!",
   lblFormIdrequired: "Form Id id required!",
 

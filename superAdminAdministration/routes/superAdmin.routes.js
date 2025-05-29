@@ -375,6 +375,8 @@ router.post('/bulk-create-forms', uploadCustomFormWithS3.any(), superAdminContro
 
 router.post('/update/form/:formId',  uploadCustomFormWithS3.any(), superAdminController.updateForm);
 
+router.post('/delete/form', superAdminAuth, superAdminController.deleteForm);
+
 router.post('/login/form', superAdminController.loginToEditForm );
 
 router.get('/get/all/forms/:sessionId', superAdminController.getAllFormsBySession);

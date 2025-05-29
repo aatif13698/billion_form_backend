@@ -3406,7 +3406,7 @@ exports.updateSession = async (req, res, next) => {
         errorCode: "SESSION_ID_MISSING",
       });
     }
-    if (!organizationId || !name || !forWhom || !isActive || !closeDate) {
+    if (!organizationId || !name || !forWhom  || !closeDate) {
       return res.status(httpsStatusCode.BadRequest).send({
         success: false,
         message: message.lblRequiredFieldMissing,
@@ -4628,7 +4628,7 @@ exports.updateForm = async (req, res, next) => {
 
     for (const [key, value] of Object.entries(req.body)) {
       if (key !== "userId" && key !== "organizationId" && key !== "sessionId" && key !== "phone" && key !== "firstName") {
-        if (typeof value === "string" && !value.startsWith("https://billionforms-files")) {
+        if (typeof value === "string" && !value.startsWith("https://billionforms-files") && !value.startsWith("https://blr1.digitaloceanspaces.com/billionforms-files")) {
           otherThanFiles[key] = value;
         }
       }
@@ -4687,6 +4687,45 @@ exports.updateForm = async (req, res, next) => {
     });
   } catch (error) {
     console.error("Form updation error:", error);
+    return res.status(httpsStatusCode.InternalServerError).json({
+      success: false,
+      message: "Internal server error",
+      errorCode: "SERVER_ERROR",
+      error: process.env.NODE_ENV === "development" ? error.message : undefined,
+    });
+  }
+};
+
+// delete form
+exports.deleteForm = async (req, res, next) => {
+  try {
+    const { formId } = req.body;
+
+    // Validate ObjectId
+    if (!mongoose.Types.ObjectId.isValid(formId)) {
+      return res.status(httpsStatusCode.BadRequest).json({
+        success: false,
+        message: "Invalid ID format",
+        errorCode: "INVALID_ID",
+      });
+    }
+
+    // Delete the form using findOneAndDelete
+    const formData = await formDataModel.findOneAndDelete({ _id: formId });
+    if (!formData) {
+      return res.status(httpsStatusCode.NotFound).json({
+        success: false,
+        message: message?.lblFormNotFound || "Form not found",
+        errorCode: "NOT_FOUND",
+      });
+    }
+
+    return res.status(httpsStatusCode.OK).json({
+      success: true,
+      message: message?.lblFormDeletedSuccess || "Form deleted successfully",
+    });
+  } catch (error) {
+    console.error("Form deletion error:", error);
     return res.status(httpsStatusCode.InternalServerError).json({
       success: false,
       message: "Internal server error",
