@@ -5274,7 +5274,7 @@ exports.downloadSessionFiles = async (req, res) => {
 
 //     console.log("totalFiles", totalFiles);
 //     console.log("files",files);
-    
+
 
 
 //     if (totalFiles === 0) {
@@ -5513,8 +5513,9 @@ exports.downloadSessionFiles = async (req, res) => {
 //     }
 //   }
 // };
-// 
 
+
+// new 2
 exports.downloadFilesByField = async (req, res) => {
   try {
     const { sessionId, fieldName, uniqueId } = req.query;
@@ -5554,8 +5555,8 @@ exports.downloadFilesByField = async (req, res) => {
       .filter((file) => file.fieldName.toLowerCase() === fieldName.toLowerCase())
       .map((file) => ({
         ...file,
-        key: file.key.startsWith('billionforms-files/') 
-          ? file.key.replace(/^billionforms-files\//, '') 
+        key: file.key.startsWith('billionforms-files/')
+          ? file.key.replace(/^billionforms-files\//, '')
           : file.key, // Remove incorrect bucket prefix if present
       }))
       .filter((file) => file.key && typeof file.key === 'string' && file.key.trim() !== '');
@@ -5716,7 +5717,9 @@ exports.downloadFilesByField = async (req, res) => {
                 console.error('File stream error', { jobId, key: file.key, attempt, err: err.message });
               });
 
-              const name = file.originalName || file.key.substring(file.key.lastIndexOf('/') + 1);
+              // const name = file.originalName || file.key.substring(file.key.lastIndexOf('/') + 1);
+              const name = file.key.substring(file.key.lastIndexOf('/') + 1);
+
               archive.append(fileStream, { name });
               break; // Success, exit retry loop
             } catch (err) {
