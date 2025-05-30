@@ -558,10 +558,23 @@ const encryptId = (id) => {
 
 
 
-function getRelativeFilePath(url) {
-  const baseUrl = "https://billionforms-files.blr1.digitaloceanspaces.com/";
-  return url.replace(baseUrl, '');
-}
+// function getRelativeFilePath(url) {
+//   const baseUrl = "https://billionforms-files.blr1.digitaloceanspaces.com/";
+//   return url.replace(baseUrl, '');
+// }
+
+
+const getRelativeFilePath = (fileUrl) => {
+  if (!fileUrl || typeof fileUrl !== 'string') return null;
+  try {
+    const url = new URL(fileUrl);
+    // Remove the leading '/' and return the path
+    return url.pathname.replace(/^\//, '');
+  } catch (error) {
+    console.error('Error parsing file URL:', error.message);
+    return null;
+  }
+};
 
 // Export the functions
 module.exports = {

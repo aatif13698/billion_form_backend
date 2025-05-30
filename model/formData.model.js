@@ -18,6 +18,7 @@ const formDataSchema = new mongoose.Schema(
         originalName: { type: String },
         mimeType: { type: String },
         size: { type: Number },
+        key: { type: String }
       },
     ],
     password: { type: String, required: true },

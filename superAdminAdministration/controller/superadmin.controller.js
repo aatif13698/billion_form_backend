@@ -3406,7 +3406,7 @@ exports.updateSession = async (req, res, next) => {
         errorCode: "SESSION_ID_MISSING",
       });
     }
-    if (!organizationId || !name || !forWhom  || !closeDate) {
+    if (!organizationId || !name || !forWhom || !closeDate) {
       return res.status(httpsStatusCode.BadRequest).send({
         success: false,
         message: message.lblRequiredFieldMissing,
@@ -5195,6 +5195,326 @@ exports.downloadSessionFiles = async (req, res) => {
 // };
 
 // Download files by fieldName for a session new
+// exports.downloadFilesByField = async (req, res) => {
+//   try {
+//     const { sessionId, fieldName, uniqueId } = req.query;
+//     const user = req.user;
+
+//     console.log("uniqueId", uniqueId);
+
+//     if (!sessionId || !fieldName) {
+//       // logger.warn('Missing sessionId or fieldName', { userId: user._id });
+//       return res.status(httpsStatusCode.BadRequest).json({
+//         success: false,
+//         message: 'sessionId and fieldName are required',
+//         errorCode: 'FIELD_MISSING',
+//       });
+//     }
+
+//     // Validate session
+//     const session = await sessionModel.findById(sessionId);
+//     if (!session) {
+//       // logger.warn('Session not found', { sessionId });
+//       return res.status(httpsStatusCode.NotFound).json({
+//         success: false,
+//         message: message.lblSessionNotFound,
+//         errorCode: 'SESSION_NOT_FOUND',
+//       });
+//     }
+
+//     // Fetch forms with matching files (case-insensitive)
+//     const forms = await formDataModel
+//       .find({
+//         sessionId,
+//         'files.fieldName': { $regex: `^${fieldName}$`, $options: 'i' },
+//       })
+//       .lean();
+
+
+//     // const forms = newForms.map((item) => {
+//     //   const files = item.files;
+//     //   const newFiles = files.map((f) => {
+//     //     return {
+//     //       ...f,
+//     //       key: commonFunction.getRelativeFilePath(f?.fileUrl)
+//     //     }
+//     //   });
+//     //   // console.log("newFiles", newFiles);
+//     //   return {
+//     //     ...item,
+//     //     files: [...newFiles]
+//     //   }
+//     // });
+
+//     // // console.log("forms",forms);
+
+
+//     // const newFiles = forms
+//     //   .flatMap((form) => form.files)
+//     //   .filter((file) => file.fieldName.toLowerCase() === fieldName.toLowerCase());
+
+//     // const files = newFiles.map((item) => {
+//     //   return { ...item, key: commonFunction.getRelativeFilePath(item?.fileUrl) }
+//     // });
+//     // const totalFiles = files.length;
+
+//     // console.log("totalFiles",totalFiles);
+
+//     // Extract files and add relative key
+//     const files = forms
+//       .flatMap((form) => form.files)
+//       .filter((file) => file.fieldName.toLowerCase() === fieldName.toLowerCase())
+//       .map((file) => ({
+//         ...file,
+//         key: commonFunction.getRelativeFilePath(file?.fileUrl) || file.key, // Fallback to file.key if function fails
+//       }))
+//       .filter((file) => file.key && typeof file.key === 'string' && file.key.trim() !== '');
+
+//     const totalFiles = files.length;
+
+//     console.log("totalFiles", totalFiles);
+//     console.log("files",files);
+    
+
+
+//     if (totalFiles === 0) {
+//       // logger.warn('No files found for field', { sessionId, fieldName });
+//       return res.status(httpsStatusCode.NotFound).json({
+//         success: false,
+//         message: 'No files found for the specified field',
+//         errorCode: 'NO_FILES_FOUND',
+//       });
+//     }
+
+//     // Create download job for progress tracking
+//     const jobId = uniqueId;
+//     await DownloadJob.create({
+//       jobId,
+//       sessionId,
+//       userId: user._id,
+//       fieldName,
+//       status: 'pending',
+//       progress: 0,
+//       expiresAt: new Date(Date.now() + 7 * 24 * 3600 * 1000),
+//     });
+//     console.log('Download job initiated', { jobId, sessionId, fieldName, totalFiles });
+
+//     req.app.get('emitProgressUpdate')(jobId);
+
+//     // Set response headers for streaming
+//     const zipFileName = `${fieldName.replace(/[^a-zA-Z0-9]/g, '_')}_${Date.now()}.zip`;
+//     res.set({
+//       'Content-Type': 'application/zip',
+//       'Content-Disposition': `attachment; filename="${zipFileName}"`,
+//       'Transfer-Encoding': 'chunked',
+//       'X-Job-Id': jobId, // For frontend to poll progress
+//       'Access-Control-Expose-Headers': 'X-Job-Id',
+//     });
+
+
+
+//     // console.log("response", res);
+
+
+//     // Create ZIP archive
+//     const archive = archiver('zip', {
+//       zlib: { level: 9 },
+//       highWaterMark: 128 * 1024, // 128KB buffer for backpressure
+//     });
+
+//     // Backpressure transform stream
+//     const backpressureTransform = new Transform({
+//       highWaterMark: 512 * 1024,
+//       transform(chunk, encoding, callback) {
+//         const bufferSize = this.writableLength;
+//         if (bufferSize > 1024 * 1024) { // 1MB threshold
+//           console.log('Backpressure detected', { jobId, bufferSize });
+//           setTimeout(() => callback(null, chunk), 100); // Longer pause
+//         } else {
+//           callback(null, chunk);
+//         }
+//       },
+//     });
+
+//     // Track progress old
+//     let processedFiles = 0;
+
+//     archive.on('progress', ({ entries }) => {
+//       processedFiles = entries.processed;
+//       console.log("processedFiles", entries.processed);
+
+//       const progress = Math.round((processedFiles / totalFiles) * 100);
+//       req.app.get('emitProgresLive')({ jobId: jobId, userId: user._id.toString(), status: "processing", progress: progress, fieldName: fieldName, errorMessage: "None" });
+//       if (progress == 100) {
+//         DownloadJob.updateOne({ jobId }, { progress, status: "completed" })
+//           .catch((err) => console.log('Failed to update progress', { jobId, err: err.message }));
+//         req.app.get('emitProgressUpdate')(jobId);
+//       }
+
+//     });
+
+
+
+//     // console.log("processedFiles",processedFiles);
+
+
+//     // Handle stream errors
+//     archive.on('error', (err) => {
+//       console.error('Archiver error', { jobId, err: err.message });
+//       DownloadJob.updateOne({ jobId }, {
+//         status: 'failed',
+//         errorMessage: err.message || 'Failed to generate ZIP',
+//       }).catch((err) => console.error('Failed to update job status', { jobId, err: err.message }));
+//       req.app.get('emitProgressUpdate')(jobId);
+//       if (!res.headersSent) {
+//         res.status(httpsStatusCode.InternalServerError).json({
+//           success: false,
+//           message: 'Failed to generate ZIP',
+//           errorCode: 'ZIP_GENERATION_FAILED',
+//         });
+//       } else {
+//         res.destroy();
+//       }
+//     });
+
+//     // Handle client disconnection
+//     req.on('close', () => {
+//       console.log('Client disconnected during download', { jobId });
+//       archive.abort();
+//       DownloadJob.updateOne({ jobId }, {
+//         status: 'failed',
+//         errorMessage: 'Download cancelled by client',
+//       }).catch((err) => console.error('Failed to update job status', { jobId, err: err.message }));
+//       req.app.get('emitProgressUpdate')(jobId);
+//     });
+
+//     // Start streaming
+//     await DownloadJob.updateOne({ jobId }, { status: 'processing' });
+//     req.app.get('emitProgressUpdate')(jobId);
+//     // logger.info('Started ZIP streaming', { jobId, sessionId, fieldName });
+
+//     // Pipe archive through backpressure transform
+//     pipeline(archive, backpressureTransform, res, (err) => {
+//       if (err) {
+//         console.error('Pipeline error', { jobId, err: err.message });
+//         DownloadJob.updateOne({ jobId }, {
+//           status: 'failed',
+//           errorMessage: err.message || 'Streaming failed',
+//         }).catch((err) => console.error('Failed to update job status', { jobId, err: err.message }));
+//         req.app.get('emitProgressUpdate')(jobId);
+//       }
+//     });
+
+//     const batchSize = 5; // Increased for better throughput
+//     for (let i = 0; i < files.length; i += batchSize) {
+//       const batch = files.slice(i, i + batchSize);
+//       console.log('batch', batch);
+
+//       await Promise.all(
+//         batch.map(async (file) => {
+//           if (!file.key || typeof file.key !== 'string' || file.key.trim() === '') {
+//             console.log('Skipping file with invalid key', {
+//               jobId,
+//               formId: file._id,
+//               fieldName: file.fieldName,
+//               originalName: file.originalName,
+//             });
+//             return;
+//           }
+
+//           for (let attempt = 1; attempt <= 5; attempt++) {
+//             try {
+//               const fileStream = s3.getObject({
+//                 Bucket: process.env.DO_SPACES_BUCKET,
+//                 Key: file.fileUrl,
+//               }).createReadStream();
+
+//               fileStream.on('error', (err) => {
+//                 console.log("err", err);
+
+//                 console.error('File stream error', { jobId, key: file.key, attempt, err: err.message });
+//               });
+
+//               const name = file.fileUrl.substring(file.fileUrl.lastIndexOf('/') + 1);
+//               archive.append(fileStream, { name });
+//               break; // Success, exit retry loop
+//             } catch (err) {
+//               console.error('Failed to stream file', { jobId, key: file.key, attempt, err: err.message });
+//               if (attempt === 3) {
+//                 console.error('Max retries reached for file', { jobId, key: file.key });
+//               }
+//               await new Promise((resolve) => setTimeout(resolve, 500 * attempt)); // Exponential backoff
+//             }
+//           }
+//         })
+//       );
+
+//       // Dynamic backpressure delay
+//       if (i + batchSize < files.length) {
+//         await new Promise((resolve) => {
+//           const checkBackpressure = () => {
+//             if (backpressureTransform.writableLength < 1024 * 1024) {
+//               resolve();
+//             } else {
+//               setTimeout(checkBackpressure, 50);
+//             }
+//           };
+//           checkBackpressure();
+//         });
+//       }
+//     }
+
+//     // Finalize ZIP
+//     archive.finalize()
+//       .then(() => {
+//         console.log('ZIP streaming completed', { jobId, fieldName, processedFiles });
+//         DownloadJob.updateOne({ jobId }, {
+//           status: 'completed',
+//           progress: 100,
+//         }).catch((err) => console.error('Failed to update job status', { jobId, err: err.message }));
+//         req.app.get('emitProgressUpdate')(jobId);
+//       })
+//       .catch((err) => {
+//         console.error('ZIP finalization failed', { jobId, err: err.message });
+//         DownloadJob.updateOne({ jobId }, {
+//           status: 'failed',
+//           errorMessage: err.message || 'Failed to finalize ZIP',
+//         }).catch((err) => console.error('Failed to update job status', { jobId, err: err.message }));
+//         req.app.get('emitProgressUpdate')(jobId);
+//       });
+
+//     // Monitor memory usage periodically
+//     const memoryInterval = setInterval(() => {
+//       const memoryUsage = process.memoryUsage().heapUsed / 1024 / 1024;
+//       // console.log('Memory usage during streaming', { jobId, memoryMB: memoryUsage.toFixed(2) });
+//       if (memoryUsage > 1000) {
+//         console.warn('High memory usage detected', { jobId, memoryMB: memoryUsage.toFixed(2) });
+//       }
+//     }, 5000);
+
+//     archive.on('end', () => clearInterval(memoryInterval));
+//     archive.on('error', () => clearInterval(memoryInterval));
+//     req.on('close', () => clearInterval(memoryInterval));
+
+//     //  return res.status(httpsStatusCode.OK).json({
+//     //     success: true,
+//     //     message: 'success',
+//     //     errorCode: 'SUCCESS',
+//     //   });
+
+//   } catch (error) {
+//     console.log('Download initiation error', { error: error.message });
+//     if (!res.headersSent) {
+//       return res.status(httpsStatusCode.InternalServerError).json({
+//         success: false,
+//         message: 'Internal server error',
+//         errorCode: 'SERVER_ERROR',
+//       });
+//     }
+//   }
+// };
+// 
+
 exports.downloadFilesByField = async (req, res) => {
   try {
     const { sessionId, fieldName, uniqueId } = req.query;
@@ -5202,9 +5522,7 @@ exports.downloadFilesByField = async (req, res) => {
 
     console.log("uniqueId", uniqueId);
 
-
     if (!sessionId || !fieldName) {
-      // logger.warn('Missing sessionId or fieldName', { userId: user._id });
       return res.status(httpsStatusCode.BadRequest).json({
         success: false,
         message: 'sessionId and fieldName are required',
@@ -5215,7 +5533,6 @@ exports.downloadFilesByField = async (req, res) => {
     // Validate session
     const session = await sessionModel.findById(sessionId);
     if (!session) {
-      // logger.warn('Session not found', { sessionId });
       return res.status(httpsStatusCode.NotFound).json({
         success: false,
         message: message.lblSessionNotFound,
@@ -5223,46 +5540,32 @@ exports.downloadFilesByField = async (req, res) => {
       });
     }
 
-
     // Fetch forms with matching files (case-insensitive)
-    const newForms = await formDataModel
+    const forms = await formDataModel
       .find({
         sessionId,
         'files.fieldName': { $regex: `^${fieldName}$`, $options: 'i' },
       })
       .lean();
-    const forms = newForms.map((item) => {
-      const files = item.files;
-      const newFiles = files.map((f) => {
-        return {
-          ...f,
-          key: commonFunction.getRelativeFilePath(f?.fileUrl)
-        }
-      });
-      // console.log("newFiles", newFiles);
-      return {
-        ...item,
-        files: [...newFiles]
-      }
-    });
 
-    // console.log("forms",forms);
-
-
-    const newFiles = forms
+    // Extract files and ensure correct key
+    const files = forms
       .flatMap((form) => form.files)
-      .filter((file) => file.fieldName.toLowerCase() === fieldName.toLowerCase());
+      .filter((file) => file.fieldName.toLowerCase() === fieldName.toLowerCase())
+      .map((file) => ({
+        ...file,
+        key: file.key.startsWith('billionforms-files/') 
+          ? file.key.replace(/^billionforms-files\//, '') 
+          : file.key, // Remove incorrect bucket prefix if present
+      }))
+      .filter((file) => file.key && typeof file.key === 'string' && file.key.trim() !== '');
 
-    const files = newFiles.map((item) => {
-      return { ...item, key: commonFunction.getRelativeFilePath(item?.fileUrl) }
-    });
     const totalFiles = files.length;
 
-    // console.log("files",files);
-
+    console.log("totalFiles", totalFiles);
+    console.log("files", files);
 
     if (totalFiles === 0) {
-      // logger.warn('No files found for field', { sessionId, fieldName });
       return res.status(httpsStatusCode.NotFound).json({
         success: false,
         message: 'No files found for the specified field',
@@ -5291,19 +5594,14 @@ exports.downloadFilesByField = async (req, res) => {
       'Content-Type': 'application/zip',
       'Content-Disposition': `attachment; filename="${zipFileName}"`,
       'Transfer-Encoding': 'chunked',
-      'X-Job-Id': jobId, // For frontend to poll progress
+      'X-Job-Id': jobId,
       'Access-Control-Expose-Headers': 'X-Job-Id',
     });
-
-
-
-    // console.log("response", res);
-
 
     // Create ZIP archive
     const archive = archiver('zip', {
       zlib: { level: 9 },
-      highWaterMark: 128 * 1024, // 128KB buffer for backpressure
+      highWaterMark: 128 * 1024,
     });
 
     // Backpressure transform stream
@@ -5311,33 +5609,37 @@ exports.downloadFilesByField = async (req, res) => {
       highWaterMark: 512 * 1024,
       transform(chunk, encoding, callback) {
         const bufferSize = this.writableLength;
-        if (bufferSize > 1024 * 1024) { // 1MB threshold
-          // console.log('Backpressure detected', { jobId, bufferSize });
-          setTimeout(() => callback(null, chunk), 100); // Longer pause
+        if (bufferSize > 1024 * 1024) {
+          console.log('Backpressure detected', { jobId, bufferSize });
+          setTimeout(() => callback(null, chunk), 100);
         } else {
           callback(null, chunk);
         }
       },
     });
 
-    // Track progress old
+    // Track progress
     let processedFiles = 0;
+
     archive.on('progress', ({ entries }) => {
       processedFiles = entries.processed;
+      console.log("processedFiles", entries.processed);
+
       const progress = Math.round((processedFiles / totalFiles) * 100);
-      req.app.get('emitProgresLive')({ jobId: jobId, userId: user._id.toString(), status: "processing", progress: progress, fieldName: fieldName, errorMessage: "None" });
-      if (progress == 100) {
+      req.app.get('emitProgresLive')({
+        jobId,
+        userId: user._id.toString(),
+        status: "processing",
+        progress,
+        fieldName,
+        errorMessage: "None",
+      });
+      if (progress === 100) {
         DownloadJob.updateOne({ jobId }, { progress, status: "completed" })
           .catch((err) => console.log('Failed to update progress', { jobId, err: err.message }));
         req.app.get('emitProgressUpdate')(jobId);
       }
-
     });
-
-
-
-    // console.log("processedFiles",processedFiles);
-
 
     // Handle stream errors
     archive.on('error', (err) => {
@@ -5372,7 +5674,6 @@ exports.downloadFilesByField = async (req, res) => {
     // Start streaming
     await DownloadJob.updateOne({ jobId }, { status: 'processing' });
     req.app.get('emitProgressUpdate')(jobId);
-    // logger.info('Started ZIP streaming', { jobId, sessionId, fieldName });
 
     // Pipe archive through backpressure transform
     pipeline(archive, backpressureTransform, res, (err) => {
@@ -5386,43 +5687,44 @@ exports.downloadFilesByField = async (req, res) => {
       }
     });
 
-    const batchSize = 5; // Increased for better throughput
+    const batchSize = 5;
     for (let i = 0; i < files.length; i += batchSize) {
       const batch = files.slice(i, i + batchSize);
-      // console.log('Processing batch', { jobId, batchIndex: i / batchSize, batchSize: batch.length });
+      console.log('batch', batch);
 
       await Promise.all(
         batch.map(async (file) => {
           if (!file.key || typeof file.key !== 'string' || file.key.trim() === '') {
-            // console.log('Skipping file with invalid key', {
-            //   jobId,
-            //   formId: file._id,
-            //   fieldName: file.fieldName,
-            //   originalName: file.originalName,
-            // });
+            console.log('Skipping file with invalid key', {
+              jobId,
+              formId: file._id,
+              fieldName: file.fieldName,
+              originalName: file.originalName,
+            });
             return;
           }
 
           for (let attempt = 1; attempt <= 5; attempt++) {
             try {
+              console.log('Fetching file from S3', { jobId, key: file.key, attempt });
               const fileStream = s3.getObject({
                 Bucket: process.env.DO_SPACES_BUCKET,
-                Key: file.key,
+                Key: file.key, // Use file.key instead of file.fileUrl
               }).createReadStream();
 
               fileStream.on('error', (err) => {
-                // console.error('File stream error', { jobId, key: file.key, attempt, err: err.message });
+                console.error('File stream error', { jobId, key: file.key, attempt, err: err.message });
               });
 
-              const name = file.fileUrl.substring(file.fileUrl.lastIndexOf('/') + 1);
+              const name = file.originalName || file.key.substring(file.key.lastIndexOf('/') + 1);
               archive.append(fileStream, { name });
               break; // Success, exit retry loop
             } catch (err) {
-              // console.error('Failed to stream file', { jobId, key: file.key, attempt, err: err.message });
-              if (attempt === 3) {
-                // console.error('Max retries reached for file', { jobId, key: file.key });
+              console.error('Failed to stream file', { jobId, key: file.key, attempt, err: err.message });
+              if (attempt === 5) {
+                console.error('Max retries reached for file', { jobId, key: file.key });
               }
-              await new Promise((resolve) => setTimeout(resolve, 500 * attempt)); // Exponential backoff
+              await new Promise((resolve) => setTimeout(resolve, 500 * attempt));
             }
           }
         })
@@ -5454,7 +5756,7 @@ exports.downloadFilesByField = async (req, res) => {
         req.app.get('emitProgressUpdate')(jobId);
       })
       .catch((err) => {
-        // console.error('ZIP finalization failed', { jobId, err: err.message });
+        console.error('ZIP finalization failed', { jobId, err: err.message });
         DownloadJob.updateOne({ jobId }, {
           status: 'failed',
           errorMessage: err.message || 'Failed to finalize ZIP',
@@ -5462,12 +5764,12 @@ exports.downloadFilesByField = async (req, res) => {
         req.app.get('emitProgressUpdate')(jobId);
       });
 
-    // Monitor memory usage periodically
+    // Monitor memory usage
     const memoryInterval = setInterval(() => {
       const memoryUsage = process.memoryUsage().heapUsed / 1024 / 1024;
-      // console.log('Memory usage during streaming', { jobId, memoryMB: memoryUsage.toFixed(2) });
+      console.log('Memory usage during streaming', { jobId, memoryMB: memoryUsage.toFixed(2) });
       if (memoryUsage > 1000) {
-        // console.warn('High memory usage detected', { jobId, memoryMB: memoryUsage.toFixed(2) });
+        console.warn('High memory usage detected', { jobId, memoryMB: memoryUsage.toFixed(2) });
       }
     }, 5000);
 
@@ -5475,14 +5777,8 @@ exports.downloadFilesByField = async (req, res) => {
     archive.on('error', () => clearInterval(memoryInterval));
     req.on('close', () => clearInterval(memoryInterval));
 
-    //  return res.status(httpsStatusCode.OK).json({
-    //     success: true,
-    //     message: 'success',
-    //     errorCode: 'SUCCESS',
-    //   });
-
   } catch (error) {
-    console.log('Download initiation error', { error: error.message });
+    console.error('Download initiation error', { error: error.message });
     if (!res.headersSent) {
       return res.status(httpsStatusCode.InternalServerError).json({
         success: false,
@@ -5492,7 +5788,6 @@ exports.downloadFilesByField = async (req, res) => {
     }
   }
 };
-
 // Check job status
 exports.getDownloadStatus = async (req, res) => {
   try {
