@@ -23,6 +23,10 @@ const customFormSchema = new mongoose.Schema({
     fileTypes: [{ type: String }],
     maxSize: Number
   },
+  aspectRation: {
+    xAxis: Number,
+    yAxis: Number
+  },
   gridConfig: {
     span: Number,
     order: Number

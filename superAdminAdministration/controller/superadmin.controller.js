@@ -3606,6 +3606,7 @@ exports.createField = async (req, res, next) => {
       isRequired,
       placeholder,
       validation,
+      aspectRation,
       gridConfig,
 
       userId,
@@ -3674,6 +3675,7 @@ exports.createField = async (req, res, next) => {
       isRequired: isRequired || false,
       placeholder,
       validation: validation || {},
+      aspectRation : aspectRation,
       gridConfig: finalGridConfig,
       createdBy: req.user._id,
       userId: userId,
