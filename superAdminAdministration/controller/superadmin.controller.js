@@ -4362,6 +4362,7 @@ exports.bulkCreateForms = async (req, res) => {
             const phone = (basePhoneNum + i).toString().padStart(10, '0');
             const fileSerialNumber = await commonFunction.getFileSerialNumber('fileSerialNumber');
             const key = `form-dynamic-file/${organization.serialNumber}/${formSession.serialNumber}/${file.fieldname}/${fileSerialNumber}_${file.originalname.toLowerCase().replace(/[^a-zA-Z0-9.-]/g, '')}`;
+
             const params = {
               Bucket: process.env.DO_SPACES_BUCKET,
               Key: key,
@@ -4379,7 +4380,7 @@ exports.bulkCreateForms = async (req, res) => {
                 originalName: file.originalname,
                 mimeType: file.mimetype,
                 size: file.size,
-                // key,
+                key,
               };
             } catch (uploadError) {
               // logger.error('File upload failed in batch', { jobId, batchIndex, i, error: uploadError.message });
@@ -5553,6 +5554,8 @@ exports.downloadFilesByField = async (req, res) => {
         'files.fieldName': { $regex: `^${fieldName}$`, $options: 'i' },
       })
       .lean();
+
+
 
     // Extract files and ensure correct key
     const files = forms
