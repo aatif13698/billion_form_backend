@@ -897,6 +897,9 @@ exports.createUser = async (req, res, next) => {
       });
     }
 
+    // console.log("company",company);
+    
+
     const access = await accessModel.findOne({ companyId: company._id });
     if (!access) {
       return res.status(httpsStatusCode.NotFound).json({
