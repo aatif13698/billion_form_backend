@@ -36,6 +36,7 @@ const commonFunction = require("./utils/commonFunction");
 const welcomeRouter = require("./routes/welcome");
 const authRouter = require("./commonAuthentication/routes/auth.routes");
 const superAdminAdministrationhRouter = require("./superAdminAdministration/routes/superAdmin.routes");
+const superAdminRoleAndPermissionRouter = require("./superAdminAdministration/routes/rolesAndPermission.routes");
 const adminRouter = require("./adminAdministration/routes/admin.routes");
 const scheduleZipCleanup = require('./utils/cron');
 const DownloadJob = require('./model/downloadJob.model');
@@ -130,6 +131,7 @@ app.use("/admin", adminRouter.router);
 app.use("/api/", welcomeRouter.router);
 app.use("/api/auth", authRouter.router);
 app.use("/api/superadmin/administration", superAdminAdministrationhRouter.router);
+app.use("/api/superadmin/roles", superAdminRoleAndPermissionRouter.router);
 app.use("/api/admin", adminRouter.router);
 
 
