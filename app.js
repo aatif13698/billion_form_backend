@@ -105,10 +105,10 @@ io.on("connection", (socket) => {
 //   });
 // });
 
-app.use((req, res, next) => {
-  console.log("Unknown route", req.url);
-  next();
-});
+// app.use((req, res, next) => {
+//   console.log("Unknown route", req.url);
+//   next();
+// });
 
 app.use(express.json()); // Parse JSON bodies
 app.use(express.urlencoded({ extended: true })); // Parse URL-encoded bodies
@@ -192,6 +192,7 @@ const startServer = async () => {
         // await commonFunction.createAccess();
         // await commonFunction.generateASerialNumber();
         // scheduleZipCleanup(); //  Start your cron after DB connection
+        // await commonFunction.updateRoleInDatbaseInstance()
 
         // Start Express server
         server.listen(PORT, () => {

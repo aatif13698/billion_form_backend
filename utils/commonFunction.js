@@ -286,37 +286,95 @@ const validateClientInput = (req, res, next) => {
   next();
 };
 
+// const identifyCompany = async (req, res, next) => {
+//   const host = req.headers.host;
+//   const origin = req.headers.origin;
+//   if (IS_DEV) {
+//     // const port = parseInt(host.split(':')[1] || BASE_PORT);  
+//     const port = parseInt(origin?.match(/\d{4}$/)[0] || BASE_PORT);
+//     const company = await companyModel.findOne({ port });
+//     req.company = company;
+//   } else {
+
+//     const domainParts = origin?.split('.');
+
+//     // Check if it's at least a 3-part domain like sub.domain.tld
+//     if (domainParts?.length >= 3) {
+//       const subdomain = domainParts[0];
+//       console.log("subdomain:", subdomain);
+//       const aaa = extractPath(subdomain);
+//       console.log("aaa:", aaa);
+
+//       const company = await companyModel.findOne({ subDomain: aaa });
+//       req.company = company;
+//     } else {
+//       console.log("No subdomain detected");
+//       req.company = null;
+//     }
+
+//   }
+//   // if (!req.company) {
+//   //   return res.status(404).json({ error: 'Company not found' });
+//   // }
+//   next();
+// };
+
+// new
 const identifyCompany = async (req, res, next) => {
-  const host = req.headers.host;
-  const origin = req.headers.origin;
-  if (IS_DEV) {
-    // const port = parseInt(host.split(':')[1] || BASE_PORT);  
-    const port = parseInt(origin?.match(/\d{4}$/)[0] || BASE_PORT);
-    const company = await companyModel.findOne({ port });
-    req.company = company;
-  } else {
+  try {
+    const host = req.headers.host;
+    const origin = req.headers.origin;
 
-    const domainParts = origin?.split('.');
+    if (IS_DEV) {
+      // Default to BASE_PORT if origin is missing or doesn't match the expected pattern
+      let port = BASE_PORT;
+      if (origin) {
+        const match = origin.match(/\d{4}$/);
+        if (match) {
+          port = parseInt(match[0], 10);
+        } else {
+          console.warn(`Origin ${origin} does not contain a four-digit port`);
+        }
+      } else {
+        console.warn('Origin header is missing in development mode');
+      }
 
-    // Check if it's at least a 3-part domain like sub.domain.tld
-    if (domainParts?.length >= 3) {
-      const subdomain = domainParts[0];
-      console.log("subdomain:", subdomain);
-      const aaa = extractPath(subdomain);
-      console.log("aaa:", aaa);
-
-      const company = await companyModel.findOne({ subDomain: aaa });
+      const company = await companyModel.findOne({ port });
+      if (!company) {
+        console.warn(`No company found for port: ${port}`);
+        return res.status(404).json({ error: 'Company not found' });
+      }
       req.company = company;
     } else {
-      console.log("No subdomain detected");
-      req.company = null;
+      if (!origin) {
+        console.warn('Origin header is missing in production mode');
+        return res.status(400).json({ error: 'Origin header required' });
+      }
+
+      const domainParts = origin.split('.');
+      if (domainParts.length >= 3) {
+        const subdomain = domainParts[0];
+        console.log('subdomain:', subdomain);
+        const aaa = extractPath(subdomain); // Ensure extractPath handles invalid input
+        console.log('aaa:', aaa);
+
+        const company = await companyModel.findOne({ subDomain: aaa });
+        if (!company) {
+          console.warn(`No company found for subdomain: ${aaa}`);
+          return res.status(404).json({ error: 'Company not found' });
+        }
+        req.company = company;
+      } else {
+        console.log('No subdomain detected');
+        return res.status(400).json({ error: 'Subdomain required' });
+      }
     }
 
+    next();
+  } catch (error) {
+    console.error('Error in identifyCompany:', error);
+    res.status(500).json({ error: 'Internal Server Error' });
   }
-  // if (!req.company) {
-  //   return res.status(404).json({ error: 'Company not found' });
-  // }
-  next();
 };
 
 // testing comment
@@ -576,6 +634,26 @@ const getRelativeFilePath = (fileUrl) => {
   }
 };
 
+
+
+async function updateRoleInDatbaseInstance() {
+    try {
+        const capability = data.defaultSuperAdminStaffPersmissionsList;
+        const existing = await Roles.findOne({ id: 4 });
+        if (existing) {
+            existing.capability = capability;
+            existing.name = "staff";
+            await existing.save();
+            console.log("Role Updatedn successfully...");
+        } else {
+            console.log("role not found");
+        }
+    } catch (error) {
+        console.log("error while creating the petient", error);
+    }
+}
+
+
 // Export the functions
 module.exports = {
   insertRole,
@@ -594,5 +672,6 @@ module.exports = {
   calculateEndDate,
   encryptId,
   insertSingleRole,
-  getRelativeFilePath
+  getRelativeFilePath,
+  updateRoleInDatbaseInstance
 };

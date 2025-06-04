@@ -94,6 +94,7 @@ exports.login = async (req, res, next) => {
         accessToken: token,
         expiresIn: tokenExpiration,
       },
+      capability : user.role.capability
     };
 
     return res.status(200).json({
