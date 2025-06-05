@@ -6,12 +6,11 @@ require('dotenv').config(); // Load environment variables first
 const bcrypt = require("bcrypt")
 const router = express.Router();
 
-const rolesAndPermissionController = require("../controller/rolesAndPermission.controller")
+const rolesAndPermissionController = require("../controller/rolesAndPermission.controller");
+const { superAdminAuth } = require("../../middleware/authorization/superAdmin");
 
 
-router.post('/list/roles', rolesAndPermissionController.listRoles);
-
-
+router.get('/list/roles', superAdminAuth, rolesAndPermissionController.listRoles);
 
 
  

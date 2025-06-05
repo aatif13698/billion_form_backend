@@ -12,6 +12,7 @@ module.exports = {
   //Role
   lblNotFoundRole: 'This role has not been set up on the platform!',
   lblRoleNotFound: "Role not found.",
+  lblRoleFoundSuccess: "Role found successfully.",
 
   // BusinessUnitRoleAndPermission
   lblBusinessUnitRoleAlreadyExists: "Role already exists with this name!",

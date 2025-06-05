@@ -124,6 +124,7 @@ app.use("/", welcomeRouter.router);
 // Routes for different roles
 app.use("/auth", authRouter.router);
 app.use("/superadmin/administration", superAdminAdministrationhRouter.router);
+app.use("/superadmin/roles", superAdminRoleAndPermissionRouter.router);
 app.use("/admin", adminRouter.router);
 
 
