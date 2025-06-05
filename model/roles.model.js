@@ -1,4 +1,7 @@
 const mongoose = require("mongoose");
+const { Schema } = mongoose;
+const ObjectId = Schema.ObjectId;
+
 
 const roleSchema = new mongoose.Schema({
     id : {type : Number},
@@ -44,7 +47,10 @@ const roleSchema = new mongoose.Schema({
         ],
         default: [], // Default to an empty array
     },
-    isActive :{type : Number, default : 1}
+    isActive :{type : Number, default : 1},
+    deletedAt: { type: Date, default: null, index: true }, 
+
+    createdBy : { type: ObjectId, ref: "user", default: null, index: true }
 
 },{timestamps:true});
 
