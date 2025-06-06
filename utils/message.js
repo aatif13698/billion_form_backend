@@ -17,6 +17,7 @@ module.exports = {
   lblRoleUpdatedSuccess: "Role updated successfully.",
   lblRoleAlreadyExists: "Role already exists.",
   lblRoleIdIsRequired: "Role ID is required.",
+  lblPermissionAssignedSuccess: "Permission Assigned Successfully.",
 
   // BusinessUnitRoleAndPermission
   lblBusinessUnitRoleAlreadyExists: "Role already exists with this name!",

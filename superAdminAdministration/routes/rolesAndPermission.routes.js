@@ -16,6 +16,10 @@ router.post('/create/role', superAdminAuth, rolesAndPermissionController.createR
 
 router.post('/update/role', superAdminAuth, rolesAndPermissionController.updateRole);
 
+router.get('/permission/:roleId', superAdminAuth, rolesAndPermissionController.getParticularRoleAndPermission);
+
+router.post('/update/permissions', superAdminAuth, rolesAndPermissionController.updatePermission);
+
 router.post('/activeinactive/role', superAdminAuth, rolesAndPermissionController.activeInactiveRole);
 
 router.delete('/softdelete/role', superAdminAuth, rolesAndPermissionController.softDeleteRole);

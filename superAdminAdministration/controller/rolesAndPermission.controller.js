@@ -24,7 +24,7 @@ exports.listRoles = async (req, res, next) => {
         .skip(skip)
         .limit(limit)
         .sort({ _id: -1 })
-        .select('id name isActive deletedAt')
+        .select('id name isActive deletedAt _id')
         .lean(),
       Roles.countDocuments(filters),
     ]);
@@ -135,6 +135,82 @@ exports.updateRole = async (req, res) => {
       error: error.message,
     });
   }
+};
+
+
+exports.getParticularRoleAndPermission = async (req, res) => {
+    try {
+        const { roleId } = req.params; 
+        if (!roleId) {
+            return res.status(400).send({
+                message: message.lblRoleIdIsRequired,
+            });
+        }
+        const role = await Roles.findById(roleId);
+        if (!role) {
+            return res.status(404).send({
+                message: message.lblRoleNotFound
+            });
+        }
+        return res.status(200).send({
+            message: message.lblRoleFoundSuccess,
+            data: role,
+        });
+    } catch (error) {
+        return res.status(500).send({
+            message: message.lblInternalServerError,
+            error: error.message,
+        });
+    }
+};
+
+
+exports.updatePermission = async (req, res) => {
+    try {
+        const { roleId, name, capability, } = req.body;
+        if (!roleId ) {
+            return res.status(httpsStatusCode.BadRequest).send({
+                message: message.lblRoleIdIsRequired,
+            });
+        }
+        const role = await Roles.findById(roleId);
+        if (!role) {
+            return res.status(httpsStatusCode.NotFound).send({
+                message: message.lblRoleNotFound,
+            });
+        }
+        const existingRole = await Roles.findOne({
+            $and: [
+                { _id: { $ne: roleId } },
+                {
+                    $or: [
+                        { name: name },
+                    ],
+                },
+            ],
+        });
+        if (existingRole) {
+            return res.status(httpsStatusCode.BadRequest).send({
+                message: message.lblRoleAlreadyExists,
+            });
+        }
+        if (name) {
+            role.name = name;
+        }
+        if (capability) {
+            role.capability = capability;
+        }
+        await role.save();
+        return res.status(httpsStatusCode.OK).send({
+            message: message.lblPermissionAssignedSuccess,
+            data: { roleId: role._id, name: role.name },
+        });
+    } catch (error) {
+        return res.status(httpsStatusCode.InternalServerError).send({
+            message: message.lblInternalServerError,
+            error: error.message,
+        });
+    }
 };
 
 
