@@ -389,7 +389,7 @@ exports.getClientsList = async (req, res, next) => {
           path: 'companyId',
           select: 'name',
         })
-        .select('serialNumber firstName  isActive lastName email phone companyId _id')
+        .select('serialNumber firstName  isActive lastName deletedAt email phone companyId _id')
         .lean(),
       User.countDocuments(filters),
     ]);
@@ -569,7 +569,7 @@ exports.createStaff = async (req, res, next) => {
     }
     const { firstName, lastName, email, phone, password, roleId } = req.body;
 
-    
+
     // Check if user already exists (using $or for email OR phone)
     const existingUser = await User.findOne({
       $or: [{ email: email.toLowerCase() }, { phone }],
@@ -643,7 +643,7 @@ exports.createStaff = async (req, res, next) => {
 // update staff 
 exports.updateStaff = async (req, res, next) => {
   try {
-    const { clientId, firstName, lastName, email, phone, password } = req.body;
+    const { clientId, firstName, lastName, email, phone, password, roleId } = req.body;
     const existingUser = await User.findOne({
       _id: { $ne: clientId },
       $or: [{ email: email.toLowerCase() }, { phone }],
@@ -655,7 +655,30 @@ exports.updateStaff = async (req, res, next) => {
         errorCode: "STAFF_EXISTS",
       });
     }
-    const currentUser = await User.findById(clientId)
+    if (!roleId) {
+      return res.status(httpsStatusCode.BadRequest).json({
+        success: false,
+        message: message.lblRoleIdIsRequired || "Role Id is required",
+        errorCode: "ROLE_ID_REQUIRED",
+      });
+    }
+
+    const role = await Roles.findById(roleId);
+    if (!role) {
+      return res.status(httpsStatusCode.Conflict).json({
+        success: false,
+        message: message.lblRoleNotFound || "Roll Not Found",
+        errorCode: "ROLL_NOT_FOUND",
+      });
+    }
+    const currentUser = await User.findById(clientId);
+     if (!currentUser) {
+      return res.status(httpsStatusCode.Conflict).json({
+        success: false,
+        message: message.lblStaffNotFound || "Staff Not Found",
+        errorCode: "STAFF_NOT_FOUND",
+      });
+    }
     if (password) {
       const hashedPassword = await bcrypt.hash(password, 10);
       currentUser.password = hashedPassword;
@@ -664,6 +687,9 @@ exports.updateStaff = async (req, res, next) => {
     currentUser.lastName = lastName;
     currentUser.email = email;
     currentUser.phone = phone;
+    currentUser.roleId = role.id;
+    currentUser.role = roleId;
+
     await currentUser.save()
     return res.status(httpsStatusCode.OK).json({
       success: true,
@@ -728,7 +754,7 @@ exports.getStaffList = async (req, res, next) => {
           select: 'name'
         })
         .populate({
-          path : "role",
+          path: "role",
           select: "name id"
         })
         .select('serialNumber firstName deletedAt isActive lastName email phone role companyId _id')
@@ -759,7 +785,12 @@ exports.getIndividualStaff = async (req, res, next) => {
   try {
     const { id } = req.params;
     const [user] = await Promise.all([
-      userModel.findById(id).lean()
+      userModel.findById(id)
+        .populate({
+          path: "role",
+          select: "name id _id"
+        })
+        .lean()
     ]);
     if (!user) {
       return res.status(httpsStatusCode.NotFound).json({
