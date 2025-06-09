@@ -559,7 +559,6 @@ exports.createStaff = async (req, res, next) => {
         errorCode: "COMPANY_NOT_FOUND",
       });
     }
-
     const access = await accessModel.findOne({ companyId: company._id });
     if (!access) {
       return res.status(httpsStatusCode.NotFound).json({
@@ -568,14 +567,15 @@ exports.createStaff = async (req, res, next) => {
         errorCode: "ACCESS_NOT_FOUND",
       });
     }
-    const { firstName, lastName, email, phone, password } = req.body;
+    const { firstName, lastName, email, phone, password, roleId } = req.body;
+
+    
     // Check if user already exists (using $or for email OR phone)
     const existingUser = await User.findOne({
       $or: [{ email: email.toLowerCase() }, { phone }],
     })
       .populate("role")
       .select("+password");
-
     if (existingUser) {
       return res.status(httpsStatusCode.Conflict).json({
         success: false,
@@ -583,10 +583,18 @@ exports.createStaff = async (req, res, next) => {
         errorCode: "STAFF_EXISTS",
       });
     }
+    const role = await Roles.findById(roleId);
+    if (!role) {
+      return res.status(httpsStatusCode.Conflict).json({
+        success: false,
+        message: message.lblRoleNotFound || "Roll Not Found",
+        errorCode: "ROLL_NOT_FOUND",
+      });
+    }
     // Hash the password
     const saltRounds = 10; // Configurable via environment variable if needed
     const hashedPassword = await bcrypt.hash(password, saltRounds);
-    const role = await Roles.findOne({ id: 4 });
+    // const role = await Roles.findOne({ id: 4 });
     const serial = await getSerialNumber("superAdminStaff");
     // Create new user
     const newUser = new User({
@@ -597,8 +605,8 @@ exports.createStaff = async (req, res, next) => {
       phone,
       password: hashedPassword,
       tc: true,
-      roleId: 4,
-      role: role?._id,
+      roleId: role.id,
+      role: roleId,
       createdBy: req.user?._id,
       isCreatedBySuperAdmin: true,
       isUserVerified: true,
@@ -606,7 +614,6 @@ exports.createStaff = async (req, res, next) => {
     });
     const savedUser = await newUser.save();
     access.users = [...access.users, savedUser._id];
-
     await access.save()
     // Remove sensitive data from response
     const userResponse = savedUser.toObject();
@@ -622,7 +629,7 @@ exports.createStaff = async (req, res, next) => {
       },
     });
   } catch (error) {
-    console.error("User creation error:", error);
+    console.error("Staff creation error:", error);
     // Generic server error
     return res.status(httpsStatusCode.InternalServerError).json({
       success: false,
@@ -688,7 +695,7 @@ exports.getStaffList = async (req, res, next) => {
     const skip = (page - 1) * limit;
 
     let filters = {
-      roleId: 4,
+      roleId: { $nin: [1, 2, 3] },
       companyId: companyId,
       ...(keyword && {
         $or: [
@@ -720,7 +727,11 @@ exports.getStaffList = async (req, res, next) => {
           path: 'organization',
           select: 'name'
         })
-        .select('serialNumber firstName deletedAt isActive lastName email phone companyId _id')
+        .populate({
+          path : "role",
+          select: "name id"
+        })
+        .select('serialNumber firstName deletedAt isActive lastName email phone role companyId _id')
         .lean(),
       User.countDocuments(filters),
     ]);
@@ -898,7 +909,7 @@ exports.createUser = async (req, res, next) => {
     }
 
     // console.log("company",company);
-    
+
 
     const access = await accessModel.findOne({ companyId: company._id });
     if (!access) {
@@ -3678,7 +3689,7 @@ exports.createField = async (req, res, next) => {
       isRequired: isRequired || false,
       placeholder,
       validation: validation || {},
-      aspectRation : aspectRation,
+      aspectRation: aspectRation,
       gridConfig: finalGridConfig,
       createdBy: req.user._id,
       userId: userId,

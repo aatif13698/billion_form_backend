@@ -49,6 +49,38 @@ exports.listRoles = async (req, res, next) => {
 };
 
 
+exports.getActiveRoles = async (req, res, next) => {
+  try {
+    let filters = {
+      id: { $nin: [1, 2, 3] },
+      isActive : 1,
+      deletedAt : null
+    };
+    const [roles] = await Promise.all([
+      Roles.find(filters)
+        .sort({ _id: -1 })
+        .select('id name isActive deletedAt _id')
+        .lean(),
+    ]);
+    return res.status(200).json({
+      success: true,
+      message: 'Roles retrieved successfully', // Replace with message.lblRoleFoundSuccess if defined
+      data: {
+        data: roles,
+      },
+    });
+  } catch (error) {
+    console.error("Error retrieving roles:", error);
+    return res.status(500).json({
+      success: false,
+      message: "Internal server error",
+      errorCode: "SERVER_ERROR",
+      error: process.env.NODE_ENV === "development" ? error.message : undefined,
+    });
+  }
+};
+
+
 
 exports.createRole = async (req, res) => {
 

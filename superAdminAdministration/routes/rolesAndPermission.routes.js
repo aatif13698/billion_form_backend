@@ -12,6 +12,8 @@ const { superAdminAuth } = require("../../middleware/authorization/superAdmin");
 
 router.get('/list/roles', superAdminAuth, rolesAndPermissionController.listRoles);
 
+router.get('/get/actioveRoles', superAdminAuth, rolesAndPermissionController.getActiveRoles);
+
 router.post('/create/role', superAdminAuth, rolesAndPermissionController.createRole);
 
 router.post('/update/role', superAdminAuth, rolesAndPermissionController.updateRole);
