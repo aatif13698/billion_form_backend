@@ -31,6 +31,7 @@ const { v4: uuidv4 } = require('uuid');
 const DownloadJob = require("../../model/downloadJob.model");
 const { PassThrough, pipeline, Transform } = require('stream');
 const BulkJob = require("../../model/bulkJob.model");
+const { mailSender } = require("../../email/emailSend");
 
 
 
@@ -620,6 +621,24 @@ exports.createStaff = async (req, res, next) => {
     delete userResponse.password;
     delete userResponse.verificationOtp;
     delete userResponse.OTP;
+
+
+    const mailOptions = {
+      from: process.env.EMAIL_FROM,
+      to: email,
+      subject: "Welcome To Billion Forms",
+      template: "welcome",
+      context: {
+        password: password,
+        email: email,
+        name: firstName,
+        emailSignature: process.env.EMAIL_SIGNATURE,
+        appName: process.env.APP_NAME
+      },
+    };
+
+    await mailSender(mailOptions);
+
     // Return success response
     return res.status(httpsStatusCode.Created).json({
       success: true,
@@ -672,7 +691,7 @@ exports.updateStaff = async (req, res, next) => {
       });
     }
     const currentUser = await User.findById(clientId);
-     if (!currentUser) {
+    if (!currentUser) {
       return res.status(httpsStatusCode.Conflict).json({
         success: false,
         message: message.lblStaffNotFound || "Staff Not Found",
