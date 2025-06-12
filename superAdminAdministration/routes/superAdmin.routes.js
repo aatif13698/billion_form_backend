@@ -7,6 +7,8 @@ const router = express.Router();
 const superAdminController = require("../controller/superadmin.controller");
 const { validateLoginInput, startCompanyServer, validateClientInput, getSerialNumber } = require("../../utils/commonFunction");
 const { superAdminAuth, superAdminAndClientAuth } = require("../../middleware/authorization/superAdmin");
+const entityAuth = require("../../middleware/authorization/entityAuth")
+
 const customFieldModel = require("../../model/customField.model");
 const companyModel = require("../../model/company.model");
 const userModel = require("../../model/user.model");
@@ -24,7 +26,7 @@ const BASE_PORT = process.env.PORT || 3000;
 
 // --------- company routes starts here -------------------
 
-router.post('/create-company', async (req, res, next) => {
+router.post('/create-company', entityAuth?.authorizeEntity("Administration", "Companies", "create"), async (req, res, next) => {
   try {
     const { name, subDomain, adminEmail, adminPassword } = req.body;
     const existing = await companyModel.findOne({
@@ -69,17 +71,17 @@ router.post('/create-company', async (req, res, next) => {
 });
 
 // update company
-router.post('/update-company', superAdminController.updateCompany);
+router.post('/update-company', entityAuth?.authorizeEntity("Administration", "Companies", "update"), superAdminController.updateCompany);
 
-router.delete('/softdelete-company', superAdminAuth, superAdminController.softDeleteCompany);
+router.delete('/softdelete-company', entityAuth?.authorizeEntity("Administration", "Companies", "softDelete"), superAdminController.softDeleteCompany);
 
-router.post('/restore-company', superAdminAuth, superAdminController.restoreCompany);
+router.post('/restore-company', entityAuth?.authorizeEntity("Administration", "Companies", "update"), superAdminController.restoreCompany);
 
-router.get('/get/company', superAdminAuth, superAdminController.getCompanyList);
+router.get('/get/company', entityAuth?.authorizeEntity("Administration", "Companies", "view"), superAdminController.getCompanyList);
 
-router.get('/get/company/:id', superAdminAuth, superAdminController.getCompany);
+router.get('/get/company/:id', entityAuth?.authorizeEntity("Administration", "Companies", "update"), superAdminController.getCompany);
 
-router.post("/activeInactive/company", superAdminAuth, superAdminController.activeInactiveCompany);
+router.post("/activeInactive/company", entityAuth?.authorizeEntity("Administration", "Companies", "update"), superAdminController.activeInactiveCompany);
 
 // Helper function to find next available port
 async function getNextAvailablePort() {
@@ -99,40 +101,40 @@ router
 
 // --------- clients routes starts here -------------------
 
-router.route("/create/cleint").post(validateClientInput, superAdminController.createClient);
+router.post("/create/cleint", entityAuth?.authorizeEntity("Administration", "Clients", "create"), superAdminController.createClient);
 
-router.post('/update/client', superAdminAuth, superAdminController.updateClient);
+router.post('/update/client', entityAuth?.authorizeEntity("Administration", "Clients", "update"), superAdminController.updateClient);
 
-router.get('/get/client', superAdminAuth, superAdminController.getClientsList);
+router.get('/get/client', entityAuth?.authorizeEntity("Administration", "Clients", "view"), superAdminController.getClientsList);
 
-router.get('/get/client/:id', superAdminAuth, superAdminController.getIndividualClient);
+router.get('/get/client/:id', entityAuth?.authorizeEntity("Administration", "Clients", "update"), superAdminController.getIndividualClient);
 
-router.delete('/softdelete/client', superAdminAuth, superAdminController.softDeleteClient);
+router.delete('/softdelete/client', entityAuth?.authorizeEntity("Administration", "Clients", "softDelete"), superAdminController.softDeleteClient);
 
-router.post('/restore/client', superAdminAuth, superAdminController.restoreClient);
+router.post('/restore/client', entityAuth?.authorizeEntity("Administration", "Clients", "update"), superAdminController.restoreClient);
 
-router.post("/activeInactive/client", superAdminAuth, superAdminController.activeInactiveClient);
+router.post("/activeInactive/client", entityAuth?.authorizeEntity("Administration", "Clients", "update"), superAdminController.activeInactiveClient);
 
-router.get('/get/client/by-status/notsetuped', superAdminAuth, superAdminController.getClients);
+router.get('/get/client/by-status/notsetuped', entityAuth?.authorizeEntity("Administration", "Clients", "view"), superAdminController.getClients);
 
-router.get('/get/all/client', superAdminAuth, superAdminController.getAllClients);
+router.get('/get/all/client', entityAuth?.authorizeEntity("Administration", "Clients", "view"), superAdminController.getAllClients);
 
 
 // --------- super admin staffs routes starts here -------------------
 
-router.route("/create/superadmin/staff").post(validateClientInput, superAdminController.createStaff);
+router.post("/create/superadmin/staff", entityAuth?.authorizeEntity("Administration", "Staff", "create"), superAdminController.createStaff);
 
-router.post('/update/superadmin/staff', superAdminAndClientAuth, superAdminController.updateStaff);
+router.post('/update/superadmin/staff', entityAuth?.authorizeEntity("Administration", "Staff", "update"), superAdminController.updateStaff);
 
-router.get('/get/all/superadmin/staff', superAdminAndClientAuth, superAdminController.getStaffList);
+router.get('/get/all/superadmin/staff', entityAuth?.authorizeEntity("Administration", "Staff", "view"), superAdminController.getStaffList);
 
-router.get('/get/staff/:id', superAdminAuth, superAdminController.getIndividualStaff);
+router.get('/get/staff/:id', entityAuth?.authorizeEntity("Administration", "Staff", "update"), superAdminController.getIndividualStaff);
 
-router.post("/activeInactive/superadmin/staff", superAdminAndClientAuth, superAdminController.activeInactiveStaff);
+router.post("/activeInactive/superadmin/staff", entityAuth?.authorizeEntity("Administration", "Staff", "update"), superAdminController.activeInactiveStaff);
 
-router.delete('/softdelete/superadmin/staff', superAdminAuth, superAdminController.softDeleteStaff);
+router.delete('/softdelete/superadmin/staff', entityAuth?.authorizeEntity("Administration", "Staff", "softDelete"), superAdminController.softDeleteStaff);
 
-router.post('/restore/superadmin/staff', superAdminAuth, superAdminController.restoreStaff);
+router.post('/restore/superadmin/staff', entityAuth?.authorizeEntity("Administration", "Staff", "update"), superAdminController.restoreStaff);
 
 
 
@@ -141,17 +143,21 @@ router.post('/restore/superadmin/staff', superAdminAuth, superAdminController.re
 
 // --------- users routes starts here -------------------
 
-router.route("/create/user").post(validateClientInput, superAdminController.createUser);
+router.post("/create/user", entityAuth?.authorizeEntity("Administration", "User", "create"), superAdminController.createUser);
 
-router.post('/update/user', superAdminAndClientAuth, superAdminController.updateUser);
+router.post('/update/user', entityAuth?.authorizeEntity("Administration", "User", "update"), superAdminController.updateUser);
 
-router.post("/activeInactive/user", superAdminAndClientAuth, superAdminController.activeInactiveUser);
+router.post("/activeInactive/user", entityAuth?.authorizeEntity("Administration", "User", "update"), superAdminController.activeInactiveUser);
 
-router.get('/get/user', superAdminAndClientAuth, superAdminController.getUserList);
+router.get('/get/user', entityAuth?.authorizeEntity("Administration", "User", "view"), superAdminController.getUserList);
 
-router.get('/get/all/user/:companyId', superAdminAndClientAuth, superAdminController.getAllUser);
+router.get('/get/all/user/:companyId', entityAuth?.authorizeEntity("Administration", "User", "create"), superAdminController.getAllUser);
 
-router.post('/assign/user', superAdminAndClientAuth, superAdminController.assignUser);
+router.post('/assign/user', entityAuth?.authorizeEntity("Administration", "User", "create"), superAdminController.assignUser);
+
+router.delete('/softdelete/user', entityAuth?.authorizeEntity("Administration", "User", "softDelete"), superAdminController.softDeleteUser);
+
+router.post('/restore/user', entityAuth?.authorizeEntity("Administration", "User", "update"), superAdminController.restoreUser);
 
 
 
@@ -162,21 +168,21 @@ router.post('/assign/user', superAdminAndClientAuth, superAdminController.assign
 
 // --------- subscription routes start here -------------------
 
-router.post("/create/subscription", superAdminAuth, superAdminController.createSubscription);
+router.post("/create/subscription", entityAuth?.authorizeEntity("Administration", "Subscription", "create"), superAdminController.createSubscription);
 
-router.post('/update/subscription', superAdminAuth, superAdminController.updateSubscription);
+router.post('/update/subscription', entityAuth?.authorizeEntity("Administration", "Subscription", "update"), superAdminController.updateSubscription);
 
-router.get('/get/subscription/list', superAdminAuth, superAdminController.getSubscriptionPlanList);
+router.get('/get/subscription/list', entityAuth?.authorizeEntity("Administration", "Subscription", "view"), superAdminController.getSubscriptionPlanList);
 
-router.get('/get/all/subscription', superAdminAuth, superAdminController.getAllSubscriptionPlan);
+router.get('/get/all/subscription', entityAuth?.authorizeEntity("Administration", "Subscription", "view"), superAdminController.getAllSubscriptionPlan);
 
-router.post("/activeInactive/subscription", superAdminAuth, superAdminController.activeInactiveSubscription);
+router.post("/activeInactive/subscription", entityAuth?.authorizeEntity("Administration", "Subscription", "update"), superAdminController.activeInactiveSubscription);
 
-router.get('/get/subscription/:id', superAdminAuth, superAdminController.getIndividualSubscriptionPlan);
+router.get('/get/subscription/:id', entityAuth?.authorizeEntity("Administration", "Subscription", "update"), superAdminController.getIndividualSubscriptionPlan);
 
-router.delete('/softdelete/subscription', superAdminAuth, superAdminController.softDeleteSubscriptionPlan);
+router.delete('/softdelete/subscription', entityAuth?.authorizeEntity("Administration", "Subscription", "softDelete"), superAdminController.softDeleteSubscriptionPlan);
 
-router.post('/restore/subscription', superAdminAuth, superAdminController.restoreSubscriptionPlan);
+router.post('/restore/subscription', entityAuth?.authorizeEntity("Administration", "Subscription", "update"), superAdminController.restoreSubscriptionPlan);
 
 
 
@@ -185,37 +191,37 @@ router.post('/restore/subscription', superAdminAuth, superAdminController.restor
 
 // --------- topup routes starts here ---------
 
-router.post("/create/topup", superAdminAuth, superAdminController.createTopup);
+router.post("/create/topup", entityAuth?.authorizeEntity("Administration", "Topup", "create"), superAdminController.createTopup);
 
-router.post('/update/topup', superAdminAuth, superAdminController.updateTopup);
+router.post('/update/topup', entityAuth?.authorizeEntity("Administration", "Topup", "update"), superAdminController.updateTopup);
 
-router.get('/get/topup/list', superAdminAuth, superAdminController.getTopupList);
+router.get('/get/topup/list', entityAuth?.authorizeEntity("Administration", "Topup", "view"), superAdminController.getTopupList);
 
-router.get('/get/all/topup', superAdminAuth, superAdminController.getAllTopupPlan);
+router.get('/get/all/topup', entityAuth?.authorizeEntity("Administration", "Topup", "view"), superAdminController.getAllTopupPlan);
 
 
-router.post("/activeInactive/topup", superAdminAuth, superAdminController.activeInactiveTopup);
+router.post("/activeInactive/topup", entityAuth?.authorizeEntity("Administration", "Topup", "update"), superAdminController.activeInactiveTopup);
 
-router.get('/get/topup/:id', superAdminAuth, superAdminController.getIndividualTopup);
+router.get('/get/topup/:id', entityAuth?.authorizeEntity("Administration", "Topup", "update"), superAdminController.getIndividualTopup);
 
-router.delete('/softdelete/topup', superAdminAuth, superAdminController.softDeleteTopup);
+router.delete('/softdelete/topup', entityAuth?.authorizeEntity("Administration", "Topup", "softDelete"), superAdminController.softDeleteTopup);
 
-router.post('/restore/topup', superAdminAuth, superAdminController.restoretopup);
+router.post('/restore/topup', entityAuth?.authorizeEntity("Administration", "Topup", "update"), superAdminController.restoretopup);
 
 // --------- topup routes ends here ---------
 
 
 // --------- subscribed user routes starts here ---------
 
-router.post("/create/subscribed", superAdminAuth, superAdminController.createSubscsribed);
+router.post("/create/subscribed", entityAuth?.authorizeEntity("Administration", "Subscribed", "create"), superAdminController.createSubscsribed);
 
-router.post("/create/assigntopup", superAdminAuth, superAdminController.createAssignTopup);
+router.post("/create/assigntopup", entityAuth?.authorizeEntity("Administration", "Topup", "create"), superAdminController.createAssignTopup);
 
-router.get('/get/subscribed/list', superAdminAuth, superAdminController.getListSubscsribed);
+router.get('/get/subscribed/list', entityAuth?.authorizeEntity("Administration", "Subscribed", "view"), superAdminController.getListSubscsribed);
 
-router.post("/activeInactive/subscribed", superAdminAuth, superAdminController.activeInactiveTopup);
+router.post("/activeInactive/subscribed", entityAuth?.authorizeEntity("Administration", "Subscribed", "update"), superAdminController.activeInactiveTopup);
 
-router.get('/get/subscribed/:id', superAdminAuth, superAdminController.getParticularSubscsribedUser);
+router.get('/get/subscribed/:id', entityAuth?.authorizeEntity("Administration", "Subscribed", "update"), superAdminController.getParticularSubscsribedUser);
 
 
 
@@ -249,7 +255,7 @@ router.get('/get/subscribed/:id', superAdminAuth, superAdminController.getPartic
 // }, superAdminController.createOrganization);
 
 // create organization new
-router.post("/create/organization", superAdminAndClientAuth, (req, res, next) => {
+router.post("/create/organization", entityAuth?.authorizeEntity("Administration", "Organization", "create"), (req, res, next) => {
   uploadImagesWithS3.fields([
     { name: 'logo', maxCount: 1 },
     { name: 'banner', maxCount: 1 }
@@ -298,7 +304,7 @@ router.post("/create/organization", superAdminAndClientAuth, (req, res, next) =>
 
 // update organization new
 
-router.post("/update/organization", superAdminAndClientAuth, (req, res, next) => {
+router.post("/update/organization", entityAuth?.authorizeEntity("Administration", "Organization", "update"), (req, res, next) => {
   uploadImagesWithS3.fields([
     { name: 'logo', maxCount: 1 },
     { name: 'banner', maxCount: 1 }
@@ -321,11 +327,11 @@ router.post("/update/organization", superAdminAndClientAuth, (req, res, next) =>
   });
 }, superAdminController.updateOrganization);
 
-router.get('/get/organization/all/:userId', superAdminAndClientAuth, superAdminController.getAllOrganization);
+router.get('/get/organization/all/:userId', entityAuth?.authorizeEntity("Administration", "Organization", "view"), superAdminController.getAllOrganization);
 
-router.post("/activeInactive/organization", superAdminAndClientAuth, superAdminController.activeInactiveOrganization);
+router.post("/activeInactive/organization", entityAuth?.authorizeEntity("Administration", "Organization", "update"), superAdminController.activeInactiveOrganization);
 
-router.get('/get/organization/:id', superAdminAndClientAuth, superAdminController.getIndividualOrganization);
+router.get('/get/organization/:id', entityAuth?.authorizeEntity("Administration", "Organization", "update"), superAdminController.getIndividualOrganization);
 
 
 // --------- Organization routes ends here -------------------
@@ -339,7 +345,7 @@ router.post("/update/session", superAdminAndClientAuth, superAdminController.upd
 
 router.delete("/delete/session", superAdminAndClientAuth, superAdminController.deleteSession);
 
-router.post("/activeInactive/session",superAdminAndClientAuth, superAdminController.activeInactiveSession);
+router.post("/activeInactive/session", superAdminAndClientAuth, superAdminController.activeInactiveSession);
 
 router.get('/get/session/all/:userId/:organizationId', superAdminAndClientAuth, superAdminController.getAllSession);
 
@@ -351,9 +357,9 @@ router.get('/get/session/:sessionId', superAdminAndClientAuth, superAdminControl
 
 // --------- Custom Form route starts here ------------------
 
-router.post('/create/field',superAdminAndClientAuth, superAdminController.createField);
+router.post('/create/field', superAdminAndClientAuth, superAdminController.createField);
 
-router.delete('/delete/field/:userId/:sessionId/:fieldId',superAdminAndClientAuth, superAdminController.deleteField );
+router.delete('/delete/field/:userId/:sessionId/:fieldId', superAdminAndClientAuth, superAdminController.deleteField);
 
 router.post("/update/order/field/:userId/:sessionId", superAdminAndClientAuth, superAdminController.updateFieldOrder);
 
@@ -373,11 +379,11 @@ router.post('/create/form', uploadCustomFormWithS3.any(), superAdminController.s
 
 router.post('/bulk-create-forms', uploadCustomFormWithS3.any(), superAdminController.bulkCreateForms);
 
-router.post('/update/form/:formId',  uploadCustomFormWithS3.any(), superAdminController.updateForm);
+router.post('/update/form/:formId', uploadCustomFormWithS3.any(), superAdminController.updateForm);
 
 router.post('/delete/form', superAdminAuth, superAdminController.deleteForm);
 
-router.post('/login/form', superAdminController.loginToEditForm );
+router.post('/login/form', superAdminController.loginToEditForm);
 
 router.get('/get/all/forms/:sessionId', superAdminController.getAllFormsBySession);
 

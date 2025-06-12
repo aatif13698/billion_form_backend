@@ -9,24 +9,26 @@ const router = express.Router();
 const rolesAndPermissionController = require("../controller/rolesAndPermission.controller");
 const { superAdminAuth } = require("../../middleware/authorization/superAdmin");
 
+const entityAuth = require("../../middleware/authorization/entityAuth")
 
-router.get('/list/roles', superAdminAuth, rolesAndPermissionController.listRoles);
+
+router.get('/list/roles', entityAuth?.authorizeEntity("Administration", "Roles & Permissions", "view"), rolesAndPermissionController.listRoles);
 
 router.get('/get/actioveRoles', superAdminAuth, rolesAndPermissionController.getActiveRoles);
 
-router.post('/create/role', superAdminAuth, rolesAndPermissionController.createRole);
+router.post('/create/role', entityAuth?.authorizeEntity("Administration", "Roles & Permissions", "create"), rolesAndPermissionController.createRole);
 
-router.post('/update/role', superAdminAuth, rolesAndPermissionController.updateRole);
+router.post('/update/role', entityAuth?.authorizeEntity("Administration", "Roles & Permissions", "update"), rolesAndPermissionController.updateRole);
 
-router.get('/permission/:roleId', superAdminAuth, rolesAndPermissionController.getParticularRoleAndPermission);
+router.get('/permission/:roleId', entityAuth?.authorizeEntity("Administration", "Roles & Permissions", "view"), rolesAndPermissionController.getParticularRoleAndPermission);
 
-router.post('/update/permissions', superAdminAuth, rolesAndPermissionController.updatePermission);
+router.post('/update/permissions', entityAuth?.authorizeEntity("Administration", "Roles & Permissions", "update"), rolesAndPermissionController.updatePermission);
 
-router.post('/activeinactive/role', superAdminAuth, rolesAndPermissionController.activeInactiveRole);
+router.post('/activeinactive/role', entityAuth?.authorizeEntity("Administration", "Roles & Permissions", "update"), rolesAndPermissionController.activeInactiveRole);
 
-router.delete('/softdelete/role', superAdminAuth, rolesAndPermissionController.softDeleteRole);
+router.delete('/softdelete/role', entityAuth?.authorizeEntity("Administration", "Roles & Permissions", "softDelete"), rolesAndPermissionController.softDeleteRole);
 
-router.post('/restore/role', superAdminAuth, rolesAndPermissionController.restoreRole);
+router.post('/restore/role', entityAuth?.authorizeEntity("Administration", "Roles & Permissions", "update"), rolesAndPermissionController.restoreRole);
 
 
  

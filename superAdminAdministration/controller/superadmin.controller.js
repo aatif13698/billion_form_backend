@@ -32,6 +32,7 @@ const DownloadJob = require("../../model/downloadJob.model");
 const { PassThrough, pipeline, Transform } = require('stream');
 const BulkJob = require("../../model/bulkJob.model");
 const { mailSender } = require("../../email/emailSend");
+const { log } = require("console");
 
 
 
@@ -1117,6 +1118,9 @@ exports.activeInactiveUser = async (req, res, next) => {
 exports.getUserList = async (req, res, next) => {
   try {
     const { keyword = '', page = 1, perPage = 10, companyId } = req.query;
+
+    console.log("req.query",req.query);
+    
     const limit = perPage
     const skip = (page - 1) * limit;
 
@@ -1153,13 +1157,13 @@ exports.getUserList = async (req, res, next) => {
           path: 'organization',
           select: 'name'
         })
-        .select('serialNumber firstName  isActive lastName email phone companyId _id')
+        .select('serialNumber firstName  isActive lastName email phone companyId _id deletedAt')
         .lean(),
       User.countDocuments(filters),
     ]);
     return res.status(httpsStatusCode.OK).json({
       success: true,
-      message: message.lblUserCreatedSuccess,
+      message: message.lblUserFoundSuccessfully,
       data: {
         data: clients,
         total: total
@@ -1309,6 +1313,78 @@ exports.assignUser = async (req, res, next) => {
       message: 'Internal server error.',
       errorCode: 'SERVER_ERROR',
       error: process.env.NODE_ENV === 'development' ? error.message : undefined,
+    });
+  }
+};
+
+exports.softDeleteUser = async (req, res, next) => {
+  try {
+    const { clientId, keyword, page, perPage, companyId } = req.body;
+    req.query.keyword = keyword;
+    req.query.page = page;
+    req.query.perPage = perPage;
+    req.query.companyId = companyId;
+    console.log("companyId",companyId);
+    
+    if (!clientId) {
+      return res.status(httpsStatusCode.BadRequest).send({
+        message: message.lblClientIdrequired,
+      });
+    }
+    const client = await userModel.findById(clientId);
+    if (!client) {
+      return res.status(httpsStatusCode.NotFound).send({
+        message: message.lblStaffNotFound,
+      });
+    }
+    Object.assign(client, {
+      deletedAt: new Date(),
+    });
+    await client.save();
+    this.getUserList(req, res)
+  } catch (error) {
+    console.error("user soft delete error:", error);
+    return res.status(httpsStatusCode.InternalServerError).json({
+      success: false,
+      message: "Internal server error",
+      errorCode: "SERVER_ERROR",
+      error: process.env.NODE_ENV === "development" ? error.message : undefined,
+    });
+  }
+};
+
+exports.restoreUser = async (req, res, next) => {
+  try {
+    const { clientId, keyword, page, perPage, companyId } = req.body;
+    req.query.keyword = keyword;
+    req.query.page = page;
+    req.query.perPage = perPage;
+    req.query.companyId = companyId;
+    console.log("companyId",companyId);
+    
+    if (!clientId) {
+      return res.status(httpsStatusCode.BadRequest).send({
+        message: message.lblStaffIdrequired,
+      });
+    }
+    const client = await userModel.findById(clientId);
+    if (!client) {
+      return res.status(httpsStatusCode.NotFound).send({
+        message: message.lblStaffNotFound,
+      });
+    }
+    Object.assign(client, {
+      deletedAt: null,
+    });
+    await client.save();
+    this.getUserList(req, res)
+  } catch (error) {
+    console.error("user restore error:", error);
+    return res.status(httpsStatusCode.InternalServerError).json({
+      success: false,
+      message: "Internal server error",
+      errorCode: "SERVER_ERROR",
+      error: process.env.NODE_ENV === "development" ? error.message : undefined,
     });
   }
 };
