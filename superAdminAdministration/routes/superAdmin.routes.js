@@ -79,7 +79,7 @@ router.post('/restore-company', entityAuth?.authorizeEntity("Administration", "C
 
 router.get('/get/company', entityAuth?.authorizeEntity("Administration", "Companies", "view"), superAdminController.getCompanyList);
 
-router.get('/get/company/:id', entityAuth?.authorizeEntity("Administration", "Companies", "update"), superAdminController.getCompany);
+router.get('/get/company/:id', entityAuth?.authorizeEntity("Administration", "Companies", "view"), superAdminController.getCompany);
 
 router.post("/activeInactive/company", entityAuth?.authorizeEntity("Administration", "Companies", "update"), superAdminController.activeInactiveCompany);
 
@@ -107,7 +107,7 @@ router.post('/update/client', entityAuth?.authorizeEntity("Administration", "Cli
 
 router.get('/get/client', entityAuth?.authorizeEntity("Administration", "Clients", "view"), superAdminController.getClientsList);
 
-router.get('/get/client/:id', entityAuth?.authorizeEntity("Administration", "Clients", "update"), superAdminController.getIndividualClient);
+router.get('/get/client/:id', entityAuth?.authorizeEntity("Administration", "Clients", "view"), superAdminController.getIndividualClient);
 
 router.delete('/softdelete/client', entityAuth?.authorizeEntity("Administration", "Clients", "softDelete"), superAdminController.softDeleteClient);
 
@@ -128,7 +128,7 @@ router.post('/update/superadmin/staff', entityAuth?.authorizeEntity("Administrat
 
 router.get('/get/all/superadmin/staff', entityAuth?.authorizeEntity("Administration", "Staff", "view"), superAdminController.getStaffList);
 
-router.get('/get/staff/:id', entityAuth?.authorizeEntity("Administration", "Staff", "update"), superAdminController.getIndividualStaff);
+router.get('/get/staff/:id', entityAuth?.authorizeEntity("Administration", "Staff", "view"), superAdminController.getIndividualStaff);
 
 router.post("/activeInactive/superadmin/staff", entityAuth?.authorizeEntity("Administration", "Staff", "update"), superAdminController.activeInactiveStaff);
 
@@ -178,7 +178,7 @@ router.get('/get/all/subscription', entityAuth?.authorizeEntity("Administration"
 
 router.post("/activeInactive/subscription", entityAuth?.authorizeEntity("Administration", "Subscription", "update"), superAdminController.activeInactiveSubscription);
 
-router.get('/get/subscription/:id', entityAuth?.authorizeEntity("Administration", "Subscription", "update"), superAdminController.getIndividualSubscriptionPlan);
+router.get('/get/subscription/:id', entityAuth?.authorizeEntity("Administration", "Subscription", "view"), superAdminController.getIndividualSubscriptionPlan);
 
 router.delete('/softdelete/subscription', entityAuth?.authorizeEntity("Administration", "Subscription", "softDelete"), superAdminController.softDeleteSubscriptionPlan);
 
@@ -202,7 +202,7 @@ router.get('/get/all/topup', entityAuth?.authorizeEntity("Administration", "Topu
 
 router.post("/activeInactive/topup", entityAuth?.authorizeEntity("Administration", "Topup", "update"), superAdminController.activeInactiveTopup);
 
-router.get('/get/topup/:id', entityAuth?.authorizeEntity("Administration", "Topup", "update"), superAdminController.getIndividualTopup);
+router.get('/get/topup/:id', entityAuth?.authorizeEntity("Administration", "Topup", "view"), superAdminController.getIndividualTopup);
 
 router.delete('/softdelete/topup', entityAuth?.authorizeEntity("Administration", "Topup", "softDelete"), superAdminController.softDeleteTopup);
 
@@ -221,7 +221,7 @@ router.get('/get/subscribed/list', entityAuth?.authorizeEntity("Administration",
 
 router.post("/activeInactive/subscribed", entityAuth?.authorizeEntity("Administration", "Subscribed", "update"), superAdminController.activeInactiveTopup);
 
-router.get('/get/subscribed/:id', entityAuth?.authorizeEntity("Administration", "Subscribed", "update"), superAdminController.getParticularSubscsribedUser);
+router.get('/get/subscribed/:id', entityAuth?.authorizeEntity("Administration", "Subscribed", "view"), superAdminController.getParticularSubscsribedUser);
 
 
 
