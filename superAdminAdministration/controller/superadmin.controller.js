@@ -5836,7 +5836,7 @@ exports.downloadFilesByField = async (req, res) => {
     const batchSize = 5;
     for (let i = 0; i < files.length; i += batchSize) {
       const batch = files.slice(i, i + batchSize);
-      console.log('batch', batch);
+      // console.log('batch', batch);
 
       await Promise.all(
         batch.map(async (file) => {
@@ -5852,7 +5852,7 @@ exports.downloadFilesByField = async (req, res) => {
 
           for (let attempt = 1; attempt <= 5; attempt++) {
             try {
-              console.log('Fetching file from S3', { jobId, key: file.key, attempt });
+              // console.log('Fetching file from S3', { jobId, key: file.key, attempt });
               const fileStream = s3.getObject({
                 Bucket: process.env.DO_SPACES_BUCKET,
                 Key: file.key, // Use file.key instead of file.fileUrl
