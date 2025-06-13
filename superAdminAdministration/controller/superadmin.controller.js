@@ -5709,7 +5709,7 @@ exports.downloadFilesByField = async (req, res) => {
     const totalFiles = files.length;
 
     console.log("totalFiles", totalFiles);
-    console.log("files", files);
+    // console.log("files", files);
 
     if (totalFiles === 0) {
       return res.status(httpsStatusCode.NotFound).json({
