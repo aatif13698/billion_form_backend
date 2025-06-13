@@ -5936,6 +5936,301 @@ exports.downloadFilesByField = async (req, res) => {
     }
   }
 };
+
+
+// new download file by field controller which is optimize. Use it in future
+// Helper function to log detailed errors
+// const logError = (context, error, metadata = {}) => {
+//   console.error(`[${context}] Error: ${error.message}`, {
+//     ...metadata,
+//     stack: error.stack,
+//   });
+// };
+// exports.downloadFilesByField = async (req, res) => {
+//   try {
+//     const { sessionId, fieldName, uniqueId } = req.query;
+//     const user = req.user;
+
+//     console.log('Starting download request', { uniqueId, sessionId, fieldName });
+
+//     if (!sessionId || !fieldName) {
+//       return res.status(httpsStatusCode.BadRequest).json({
+//         success: false,
+//         message: 'sessionId and fieldName are required',
+//         errorCode: 'FIELD_MISSING',
+//       });
+//     }
+
+//     // Validate session
+//     const session = await sessionModel.findById(sessionId);
+//     if (!session) {
+//       return res.status(httpsStatusCode.NotFound).json({
+//         success: false,
+//         message: message.lblSessionNotFound,
+//         errorCode: 'SESSION_NOT_FOUND',
+//       });
+//     }
+
+//     // Fetch forms with matching files (case-insensitive)
+//     const forms = await formDataModel
+//       .find({
+//         sessionId,
+//         'files.fieldName': { $regex: `^${fieldName}$`, $options: 'i' },
+//       })
+//       .lean();
+
+//     // Extract files and ensure correct key
+//     const files = forms
+//       .flatMap((form) => form.files)
+//       .filter((file) => file.fieldName.toLowerCase() === fieldName.toLowerCase())
+//       .map((file) => ({
+//         ...file,
+//         key: file.key.startsWith('billionforms-files/')
+//           ? file.key.replace(/^billionforms-files\//, '')
+//           : file.key,
+//       }))
+//       .filter((file) => file.key && typeof file.key === 'string' && file.key.trim() !== '');
+
+//     const totalFiles = files.length;
+
+//     console.log('Files to process', { totalFiles });
+
+//     if (totalFiles === 0) {
+//       return res.status(httpsStatusCode.NotFound).json({
+//         success: false,
+//         message: 'No files found for the specified field',
+//         errorCode: 'NO_FILES_FOUND',
+//       });
+//     }
+
+//     // Create download job for progress tracking
+//     const jobId = uniqueId;
+//     await DownloadJob.create({
+//       jobId,
+//       sessionId,
+//       userId: user._id,
+//       fieldName,
+//       status: 'pending',
+//       progress: 0,
+//       expiresAt: new Date(Date.now() + 7 * 24 * 3600 * 1000),
+//     });
+//     console.log('Download job initiated', { jobId, sessionId, fieldName, totalFiles });
+
+//     req.app.get('emitProgressUpdate')(jobId);
+
+//     // Set response headers for streaming
+//     const zipFileName = `${fieldName.replace(/[^a-zA-Z0-9]/g, '_')}_${Date.now()}.zip`;
+//     res.set({
+//       'Content-Type': 'application/zip',
+//       'Content-Disposition': `attachment; filename="${zipFileName}"`,
+//       'Transfer-Encoding': 'chunked',
+//       'X-Job-Id': jobId,
+//       'Access-Control-Expose-Headers': 'X-Job-Id',
+//     });
+
+//     // Create ZIP archive with lower compression to reduce CPU usage
+//     const archive = archiver('zip', {
+//       zlib: { level: 1 }, // Lower compression level for faster processing
+//       highWaterMark: 256 * 1024, // Increased buffer size for better streaming
+//     });
+
+//     // Backpressure transform stream
+//     const backpressureTransform = new Transform({
+//       highWaterMark: 1024 * 1024, // 1MB buffer
+//       transform(chunk, encoding, callback) {
+//         const bufferSize = this.writableLength;
+//         if (bufferSize > 2 * 1024 * 1024) {
+//           console.log('Backpressure detected', { jobId, bufferSize });
+//           setTimeout(() => callback(null, chunk), 100);
+//         } else {
+//           callback(null, chunk);
+//         }
+//       },
+//     });
+
+//     // Track progress
+//     let processedFiles = 0;
+
+//     archive.on('progress', ({ entries }) => {
+//       processedFiles = entries.processed;
+//       const progress = Math.round((processedFiles / totalFiles) * 100);
+//       console.log('Progress update', { jobId, processedFiles, progress });
+
+//       req.app.get('emitProgresLive')({
+//         jobId,
+//         userId: user._id.toString(),
+//         status: 'processing',
+//         progress,
+//         fieldName,
+//         errorMessage: 'None',
+//       });
+
+//       if (progress === 100) {
+//         DownloadJob.updateOne({ jobId }, { progress, status: 'completed' })
+//           .catch((err) => logError('Progress update', err, { jobId }));
+//         req.app.get('emitProgressUpdate')(jobId);
+//       }
+//     });
+
+//     // Handle archive errors
+//     archive.on('error', (err) => {
+//       logError('Archiver error', err, { jobId });
+//       DownloadJob.updateOne(
+//         { jobId },
+//         {
+//           status: 'failed',
+//           errorMessage: err.message || 'Failed to generate ZIP',
+//         }
+//       ).catch((err) => logError('Job status update', err, { jobId }));
+//       req.app.get('emitProgressUpdate')(jobId);
+//       if (!res.headersSent) {
+//         res.status(httpsStatusCode.InternalServerError).json({
+//           success: false,
+//           message: 'Failed to generate ZIP',
+//           errorCode: 'ZIP_GENERATION_FAILED',
+//         });
+//       } else {
+//         res.destroy();
+//       }
+//     });
+
+//     // Handle client disconnection
+//     req.on('close', () => {
+//       console.log('Client disconnected during download', { jobId });
+//       archive.abort();
+//       DownloadJob.updateOne(
+//         { jobId },
+//         {
+//           status: 'failed',
+//           errorMessage: 'Download cancelled by client',
+//         }
+//       ).catch((err) => logError('Job status update', err, { jobId }));
+//       req.app.get('emitProgressUpdate')(jobId);
+//     });
+
+//     // Start streaming
+//     await DownloadJob.updateOne({ jobId }, { status: 'processing' });
+//     req.app.get('emitProgressUpdate')(jobId);
+
+//     // Pipe archive through backpressure transform
+//     pipeline(archive, backpressureTransform, res, (err) => {
+//       if (err) {
+//         logError('Pipeline error', err, { jobId });
+//         DownloadJob.updateOne(
+//           { jobId },
+//           {
+//             status: 'failed',
+//             errorMessage: err.message || 'Streaming failed',
+//           }
+//         ).catch((err) => logError('Job status update', err, { jobId }));
+//         req.app.get('emitProgressUpdate')(jobId);
+//       }
+//     });
+
+//     // Process files sequentially to reduce memory usage
+//     const batchSize = 1; // Process one file at a time to minimize memory usage
+//     for (let i = 0; i < files.length; i += batchSize) {
+//       const batch = files.slice(i, i + batchSize);
+
+//       for (const file of batch) {
+//         if (!file.key || typeof file.key !== 'string' || file.key.trim() === '') {
+//           console.log('Skipping file with invalid key', {
+//             jobId,
+//             formId: file._id,
+//             fieldName: file.fieldName,
+//             originalName: file.originalName,
+//           });
+//           continue;
+//         }
+
+//         for (let attempt = 1; attempt <= 3; attempt++) {
+//           try {
+//             console.log('Fetching file from S3', { jobId, key: file.key, attempt });
+//             const fileStream = s3.getObject({
+//               Bucket: process.env.DO_SPACES_BUCKET,
+//               Key: file.key,
+//             }).createReadStream();
+
+//             fileStream.on('error', (err) => {
+//               logError('File stream error', err, { jobId, key: file.key, attempt });
+//             });
+
+//             const name = file.key.substring(file.key.lastIndexOf('/') + 1);
+//             archive.append(fileStream, { name });
+//             break; // Success, exit retry loop
+//           } catch (err) {
+//             logError('Failed to stream file', err, { jobId, key: file.key, attempt });
+//             if (attempt === 3) {
+//               console.error('Max retries reached for file', { jobId, key: file.key });
+//             }
+//             await new Promise((resolve) => setTimeout(resolve, 500 * attempt));
+//           }
+//         }
+
+//         // Wait for backpressure to clear before processing the next file
+//         await new Promise((resolve) => {
+//           const checkBackpressure = () => {
+//             if (backpressureTransform.writableLength < 1024 * 1024) {
+//               resolve();
+//             } else {
+//               setTimeout(checkBackpressure, 50);
+//             }
+//           };
+//           checkBackpressure();
+//         });
+//       }
+//     }
+
+//     // Finalize ZIP
+//     archive.finalize()
+//       .then(() => {
+//         console.log('ZIP streaming completed', { jobId, fieldName, processedFiles });
+//         DownloadJob.updateOne({ jobId }, {
+//           status: 'completed',
+//           progress: 100,
+//         }).catch((err) => logError('Job status update', err, { jobId }));
+//         req.app.get('emitProgressUpdate')(jobId);
+//       })
+//       .catch((err) => {
+//         logError('ZIP finalization failed', err, { jobId });
+//         DownloadJob.updateOne(
+//           { jobId },
+//           {
+//             status: 'failed',
+//             errorMessage: err.message || 'Failed to finalize ZIP',
+//           }
+//         ).catch((err) => logError('Job status update', err, { jobId }));
+//         req.app.get('emitProgressUpdate')(jobId);
+//       });
+
+//     // Monitor memory usage
+//     const memoryInterval = setInterval(() => {
+//       const memoryUsage = process.memoryUsage().heapUsed / 1024 / 1024;
+//       console.log('Memory usage during streaming', { jobId, memoryMB: memoryUsage.toFixed(2) });
+//       if (memoryUsage > 500) { // Lower threshold for warning
+//         console.warn('High memory usage detected', { jobId, memoryMB: memoryUsage.toFixed(2) });
+//       }
+//     }, 3000); // Reduced interval for more frequent checks
+
+//     archive.on('end', () => clearInterval(memoryInterval));
+//     archive.on('error', () => clearInterval(memoryInterval));
+//     req.on('close', () => clearInterval(memoryInterval));
+
+//   } catch (error) {
+//     logError('Download initiation error', error);
+//     if (!res.headersSent) {
+//       return res.status(httpsStatusCode.InternalServerError).json({
+//         success: false,
+//         message: 'Internal server error',
+//         errorCode: 'SERVER_ERROR',
+//       });
+//     }
+//   }
+// };
+
+
+
+
 // Check job status
 exports.getDownloadStatus = async (req, res) => {
   try {
