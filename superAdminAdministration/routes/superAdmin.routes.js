@@ -7,7 +7,9 @@ const router = express.Router();
 const superAdminController = require("../controller/superadmin.controller");
 const { validateLoginInput, startCompanyServer, validateClientInput, getSerialNumber } = require("../../utils/commonFunction");
 const { superAdminAuth, superAdminAndClientAuth } = require("../../middleware/authorization/superAdmin");
-const entityAuth = require("../../middleware/authorization/entityAuth")
+const entityAuth = require("../../middleware/authorization/entityAuth");
+const { body, param } = require('express-validator');
+
 
 const customFieldModel = require("../../model/customField.model");
 const companyModel = require("../../model/company.model");
@@ -496,6 +498,36 @@ router.get('/custom-fields', superAdminAuth, async (req, res) => {
 
 
 // --------- custom form route starts here ------------------
+
+
+
+// --------- Request a demo rooute starts here --------------
+
+
+router.post(
+  '/create/request',
+  [
+    body('name').trim().notEmpty().withMessage('Name is required'),
+    body('email')
+      .optional()
+      .isEmail().withMessage('Invalid email format')
+      .normalizeEmail(),
+    body('message').trim().notEmpty().withMessage('Message is required'),
+  ],
+  superAdminController.createRequest
+);
+
+router.delete(
+  '/delete/request/:id',
+  [
+    param('id').isMongoId().withMessage('Invalid request ID'),
+  ],
+  superAdminController.softDeleteRequest
+);
+
+
+
+// --------- Request a demo rooute ends here ----------------
 
 
 exports.router = router;

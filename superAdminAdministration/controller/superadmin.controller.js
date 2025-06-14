@@ -7,6 +7,8 @@ const CustomError = require("../../utils/customError");
 const httpsStatusCode = require("../../utils/https-status-code");
 const message = require("../../utils/message");
 require('dotenv').config(); // Load environment variables first
+const { validationResult } = require('express-validator');
+
 
 const Roles = require("../../model/roles.model");
 const { getSerialNumber } = require("../../utils/commonFunction");
@@ -33,6 +35,7 @@ const { PassThrough, pipeline, Transform } = require('stream');
 const BulkJob = require("../../model/bulkJob.model");
 const { mailSender } = require("../../email/emailSend");
 const { log } = require("console");
+const UserRequest = require("../../model/requests.model");
 
 
 
@@ -1119,8 +1122,8 @@ exports.getUserList = async (req, res, next) => {
   try {
     const { keyword = '', page = 1, perPage = 10, companyId } = req.query;
 
-    console.log("req.query",req.query);
-    
+    console.log("req.query", req.query);
+
     const limit = perPage
     const skip = (page - 1) * limit;
 
@@ -1324,8 +1327,8 @@ exports.softDeleteUser = async (req, res, next) => {
     req.query.page = page;
     req.query.perPage = perPage;
     req.query.companyId = companyId;
-    console.log("companyId",companyId);
-    
+    console.log("companyId", companyId);
+
     if (!clientId) {
       return res.status(httpsStatusCode.BadRequest).send({
         message: message.lblClientIdrequired,
@@ -1360,8 +1363,8 @@ exports.restoreUser = async (req, res, next) => {
     req.query.page = page;
     req.query.perPage = perPage;
     req.query.companyId = companyId;
-    console.log("companyId",companyId);
-    
+    console.log("companyId", companyId);
+
     if (!clientId) {
       return res.status(httpsStatusCode.BadRequest).send({
         message: message.lblStaffIdrequired,
@@ -6280,3 +6283,126 @@ exports.getDownloadStatus = async (req, res) => {
 
 // ---------- custom form file download controller starts here -------------
 
+
+
+
+exports.createRequest = async (req, res, next) => {
+  try {
+    // Check for validation errors
+    const errors = validationResult(req);
+    if (!errors.isEmpty()) {
+      return res.status(httpsStatusCode.BadRequest).json({
+        success: false,
+        message: 'Validation failed',
+        errors: errors.array(),
+        errorCode: 'VALIDATION_ERROR',
+      });
+    }
+
+    const { name, phone, email, message } = req.body;
+
+    // // Check if phone number already exists (excluding soft-deleted records)
+    // const existingRequest = await UserRequest.findOne({ 
+    //   phone, 
+    //   deletedAt: null 
+    // });
+    // if (existingRequest) {
+    //   return res.status(httpsStatusCode.Conflict).json({
+    //     success: false,
+    //     message: 'Phone number already exists',
+    //     errorCode: 'DUPLICATE_PHONE',
+    //   });
+    // }
+
+    // Create new request
+    const newRequest = new UserRequest({
+      name,
+      phone,
+      email,
+      message,
+    });
+
+    await newRequest.save();
+
+    const mailOptions = {
+      from: process.env.EMAIL_FROM,
+      to: email,
+      subject: "Welcome To Billion Forms",
+      template: "requestDemoThanksResponse",
+      context: {
+        appName: process.env.APP_NAME,
+        name: name,
+        email: email,
+        phone: phone,
+        message: message,
+        appUrl: 'https://aestree.in',
+        logoUrl: 'https://billionforms-files.blr1.cdn.digitaloceanspaces.com/CompanyLogo/aestree-logo.png',
+        contactEmail: 'contact@aestree.in',
+        contactPhone: '+91 80694 56009',
+        emailSignature: 'Customer Success Team',
+        currentYear: new Date().getFullYear(),
+      },
+    };
+
+    await mailSender(mailOptions);
+
+    return res.status(httpsStatusCode.Created).json({
+      success: true,
+      message: 'Request created successfully',
+      data: newRequest,
+    });
+  } catch (error) {
+    console.error('Error in createRequest:', error);
+    return res.status(httpsStatusCode.InternalServerError).json({
+      success: false,
+      message: 'Internal server error',
+      errorCode: 'SERVER_ERROR',
+      error: error.message,
+    });
+  }
+};
+
+exports.softDeleteRequest = async (req, res, next) => {
+  try {
+    // Check for validation errors
+    const errors = validationResult(req);
+    if (!errors.isEmpty()) {
+      return res.status(httpsStatusCode.BadRequest).json({
+        success: false,
+        message: 'Validation failed',
+        errors: errors.array(),
+        errorCode: 'VALIDATION_ERROR',
+      });
+    }
+
+    const { id } = req.params;
+    // Find request and ensure it's not already soft-deleted
+    const request = await UserRequest.findOne({
+      _id: id,
+      deletedAt: null
+    });
+    if (!request) {
+      return res.status(httpsStatusCode.NotFound).json({
+        success: false,
+        message: 'Request not found or already deleted',
+        errorCode: 'NOT_FOUND',
+      });
+    }
+    // Soft delete by setting deletedAt
+    request.deletedAt = new Date();
+    await request.save();
+    return res.status(httpsStatusCode.OK).json({
+      success: true,
+      message: 'Request soft deleted successfully',
+      data: { id },
+    });
+  } catch (error) {
+    console.error('Error in softDeleteRequest:', error);
+    return res.status(httpsStatusCode.InternalServerError).json({
+      success: false,
+      message: 'Internal server error',
+      errorCode: 'SERVER_ERROR',
+      error: error.message,
+    });
+  }
+};
