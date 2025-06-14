@@ -1,187 +1,157 @@
-<html>
-  <head>
-    <title>Thank You for Requesting a Free Demo with {{appName}}</title>
-    <meta charset="UTF-8" />
-    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  </head>
-  <body style="background-color: #fafafa; margin: 0; padding: 0;">
-    <table
-      cellspacing="0"
-      align="center"
-      cellpadding="0"
-      border="0"
-      width="600"
-      style="width: 600px; background-color: #fff; margin: 0 auto;"
-    >
-      <tr>
-        <td width="55"></td>
-        <td>
-          <table width="100%" cellspacing="0" cellpadding="0" border="0">
-            <tr height="55">
-              <td></td>
-            </tr>
-            <tr>
-              <td>
-                <table
-                  width="100%"
-                  cellspacing="0"
-                  cellpadding="0"
-                  border="0"
-                  style="background-color: #2f9a64;"
-                >
-                  <tr>
-                    <td width="30"></td>
-                    <td>
-                      <table
-                        width="100%"
-                        cellspacing="0"
-                        cellpadding="0"
-                        border="0"
-                      >
-                        <tr height="10"><td></td></tr>
-                        <tr>
-                          <td align="left">
-                            <a href="{{appUrl}}" style="text-decoration: none;">
-                              <img
-                                src="{{logoUrl}}"
-                                alt="{{appName}} Logo"
-                                style="border: 0; width: 4rem; height: 4rem;"
-                              />
-                            </a>
-                          </td>
-                          <td
-                            style="color: white; font-size: 20px; font-family: Arial, sans-serif;"
-                          >{{appName}}</td>
-                        </tr>
-                        <tr height="8"><td></td></tr>
-                      </table>
-                    </td>
-                    <td width="41"></td>
-                  </tr>
-                </table>
-              </td>
-            </tr>
-            <tr height="20"><td></td></tr>
-            <tr>
-              <td
-                style="font-family: Arial, sans-serif; font-size: 16px; color: #050f2f;"
-              >
-                Dear
-                {{name}},
-              </td>
-            </tr>
-            <tr height="10"><td></td></tr>
-            <tr>
-              <td
-                style="font-family: Arial, sans-serif; font-size: 16px; color: #050f2f;"
-              >
-                Thank you for requesting a free demo with
-                <strong>{{appName}}</strong>! We're excited about your interest
-                in our eco-friendly car care solutions.
-              </td>
-            </tr>
-            <tr height="10"><td></td></tr>
-            <tr>
-              <td
-                style="font-family: Arial, sans-serif; font-size: 16px; color: #050f2f;"
-              >
-                We've received your request with the following details:
-              </td>
-            </tr>
-            <tr height="10"><td></td></tr>
-            <tr>
-              <td
-                style="font-family: Arial, sans-serif; font-size: 16px; color: #050f2f;"
-              >
-                <strong>Name:</strong>
-                {{name}}<br />
-                <strong>Email:</strong>
-                {{email}}<br />
-                <strong>Phone:</strong>
-                {{phone}}<br />
-                <strong>Message:</strong>
-                {{message}}
-              </td>
-            </tr>
-            <tr height="10"><td></td></tr>
-            <tr>
-              <td
-                style="font-family: Arial, sans-serif; font-size: 16px; color: #050f2f;"
-              >
-                Our team will reach out to you within the next 24-48 hours to
-                schedule your demo and answer any questions you may have. In the
-                meantime, feel free to contact us at
-                <a
-                  href="mailto:{{contactEmail}}"
-                  style="color: #2f9a64; text-decoration: none;"
-                ><strong>{{contactEmail}}</strong></a>
-                or call us at
-                <strong>{{contactPhone}}</strong>.
-              </td>
-            </tr>
-            <tr height="10"><td></td></tr>
-            <tr>
-              <td
-                style="font-family: Arial, sans-serif; font-size: 16px; color: #050f2f;"
-              >
-                We look forward to showcasing how
-                {{appName}}
-                can revolutionize your car care experience!
-              </td>
-            </tr>
-            <tr height="20"><td></td></tr>
-            <tr>
-              <td
-                style="font-family: Arial, sans-serif; font-size: 16px; color: #050f2f;"
-              >
-                Best regards,<br />
-                <strong>{{emailSignature}}</strong><br />
-                Team
-                {{appName}}
-              </td>
-            </tr>
-            <tr height="30"><td></td></tr>
-            <tr>
-              <td>
-                <table
-                  width="100%"
-                  cellspacing="0"
-                  cellpadding="0"
-                  border="0"
-                  style="background-color: #2f9a64;"
-                >
-                  <tr>
-                    <td>
-                      <table
-                        width="100%"
-                        cellspacing="0"
-                        cellpadding="0"
-                        border="0"
-                      >
-                        <tr height="10"><td></td></tr>
-                        <tr>
-                          <td
-                            align="center"
-                            style="color: white; font-size: 14px; font-family: Arial, sans-serif;"
-                          >
-                            ©
-                            {{currentYear}}
-                            {{appName}}
-                            | All Rights Reserved
-                          </td>
-                        </tr>
-                        <tr height="10"><td></td></tr>
-                      </table>
-                    </td>
-                    <td width="41"></td>
-                  </tr>
-                </table>
-              </td>
-            </tr>
-          </table>
-        </td>
-        <td width="55"></td>
-      </tr>
-    </table>
-  </body>
+
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Thank You for Requesting a Free Demo with {{appName}}</title>
+  <meta http-equiv="X-UA-Compatible" content="IE=edge">
+  <meta name="format-detection" content="telephone=no">
+  <link rel="icon" href="{{logoUrl}}" type="image/png">
+</head>
+<body style="margin: 0; padding: 0; background-color: #f4f4f9; font-family: -apple-system, BlinkMacSystemFont, 'Helvetica Neue', Arial, sans-serif; -webkit-font-smoothing: antialiased;">
+  <!-- Preheader -->
+  <div style="display: none; font-size: 1px; color: #f4f4f9; line-height: 1px; max-height: 0px; max-width: 0px; opacity: 0; overflow: hidden;">
+    Thank you, {{name}}, for requesting a free demo with {{appName}}!
+  </div>
+
+  <!-- Main Table -->
+  <table role="presentation" border="0" cellpadding="0" cellspacing="0" width="100%" style="max-width: 600px; margin: 0 auto; background-color: #ffffff;">
+    <!-- Header -->
+    {{!-- Partial: header --}}
+    <tr>
+      <td style="padding: 20px 20px 10px;">
+        <table role="presentation" border="0" cellpadding="0" cellspacing="0" width="100%">
+          <tr>
+            <td>
+              <a href="{{appUrl}}" style="text-decoration: none;">
+                <img src="{{logoUrl}}" alt="{{appName}} Logo" width="48" height="48" style="width: 48px; height: 48px; border: 0; display: block;">
+              </a>
+            </td>
+            <td align="right" style="color: #2f9a64; font-size: 20px; font-weight: 600;">
+              {{appName}}
+            </td>
+          </tr>
+        </table>
+      </td>
+    </tr>
+
+    <!-- Hero Section -->
+    <tr>
+      <td style="padding: 10px 20px 20px;">
+        <table role="presentation" border="0" cellpadding="0" cellspacing="0" width="100%">
+          <tr>
+            <td style="font-size: 24px; line-height: 32px; color: #050f2f; font-weight: 600; padding-bottom: 10px;">
+              Thank You, {{name}}!
+            </td>
+          </tr>
+          <tr>
+            <td style="font-size: 16px; line-height: 24px; color: #050f2f;">
+              We’re thrilled about your interest in <strong>{{appName}}</strong>’Billion Forms solutions. Your free demo request has been received, and we’re excited to connect with you soon!
+            </td>
+          </tr>
+        </table>
+      </td>
+    </tr>
+
+    <!-- Request Details -->
+    <tr>
+      <td style="padding: 0 20px 20px;">
+        <table role="presentation" border="0" cellpadding="0" cellspacing="0" width="100%">
+          <tr>
+            <td style="font-size: 16px; line-height: 24px; color: #050f2f; padding-bottom: 10px;">
+              <strong>Your Request Details:</strong>
+            </td>
+          </tr>
+          <tr>
+            <td style="font-size: 16px; line-height: 24px; color: #050f2f;">
+              <table role="presentation" border="0" cellpadding="0" cellspacing="0" width="100%">
+                <tr>
+                  <td width="80" style="padding: 5px 0; color: #050f2f;"><strong>Name:</strong></td>
+                  <td style="padding: 5px 0; color: #050f2f;">{{name}}</td>
+                </tr>
+                <tr>
+                  <td width="80" style="padding: 5px 0; color: #050f2f;"><strong>Email:</strong></td>
+                  <td style="padding: 5px 0; color: #050f2f;">{{email}}</td>
+                </tr>
+                <tr>
+                  <td width="80" style="padding: 5px 0; color: #050f2f;"><strong>Phone:</strong></td>
+                  <td style="padding: 5px 0; color: #050f2f;">{{phone}}</td>
+                </tr>
+                <tr>
+                  <td width="80" style="padding: 5px 0; color: #050f2f;"><strong>Message:</strong></td>
+                  <td style="padding: 5px 0; color: #050f2f;">{{message}}</td>
+                </tr>
+              </table>
+            </td>
+          </tr>
+        </table>
+      </td>
+    </tr>
+
+    <!-- Next Steps -->
+    <tr>
+      <td style="padding: 0 20px 20px;">
+        <table role="presentation" border="0" cellpadding="0" cellspacing="0" width="100%">
+          <tr>
+            <td style="font-size: 16px; line-height: 24px; color: #050f2f; padding-bottom: 15px;">
+              Our team will reach out within <strong>24-48 hours</strong> to schedule your demo. Have questions? Contact us anytime:
+            </td>
+          </tr>
+          <tr>
+            <td align="center">
+              <table role="presentation" border="0" cellpadding="0" cellspacing="0">
+                <tr>
+                  <td style="padding: 0 10px 10px;">
+                    <a href="mailto:{{contactEmail}}" style="color: #2f9a64; text-decoration: none; font-size: 16px; font-weight: 500;">
+                      {{contactEmail}}
+                    </a>
+                  </td>
+                  <td style="padding: 0 10px 10px;">
+                    <a href="tel:{{contactPhone}}" style="color: #2f9a64; text-decoration: none; font-size: 16px; font-weight: 500;">
+                      {{contactPhone}}
+                    </a>
+                  </td>
+                </tr>
+              </table>
+            </td>
+          </tr>
+          <tr>
+            <td align="center">
+              <a href="{{appUrl}}" style="display: inline-block; background-color: #2f9a64; color: #ffffff; font-size: 16px; font-weight: 600; text-decoration: none; padding: 12px 24px; border-radius: 6px; text-align: center;">
+                Learn More About {{appName}}
+              </a>
+            </td>
+          </tr>
+        </table>
+      </td>
+    </tr>
+
+    <!-- Footer -->
+    {{!-- Partial: footer --}}
+    <tr>
+      <td style="background-color: #2f9a64; padding: 20px; text-align: center;">
+        <table role="presentation" border="0" cellpadding="0" cellspacing="0" width="100%">
+          <tr>
+            <td style="font-size: 14px; line-height: 20px; color: #ffffff; padding-bottom: 10px;">
+              &copy; {{currentYear}} {{appName}}. All Rights Reserved.
+            </td>
+          </tr>
+          <tr>
+            <td style="font-size: 14px; line-height: 20px; color: #ffffff;">
+              <a href="{{appUrl}}/privacy" style="color: #ffffff; text-decoration: underline;">Privacy Policy</a> | 
+              <a href="{{appUrl}}/terms" style="color: #ffffff; text-decoration: underline;">Terms of Service</a> | 
+              <a href="{{unsubscribeUrl}}" style="color: #ffffff; text-decoration: underline;">Unsubscribe</a>
+            </td>
+          </tr>
+          <tr>
+            <td style="font-size: 14px; line-height: 20px; color: #ffffff; padding-top: 10px;">
+              {{appName}}, 123 Eco Street, Green City, IN 12345
+            </td>
+          </tr>
+        </table>
+      </td>
+    </tr>
+  </table>
+</body>
 </html>

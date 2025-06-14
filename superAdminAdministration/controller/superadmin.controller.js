@@ -6299,7 +6299,7 @@ exports.createRequest = async (req, res, next) => {
       });
     }
 
-    const { name, phone, email, message } = req.body;
+    const { name, phone_number, email, message } = req.body;
 
     // // Check if phone number already exists (excluding soft-deleted records)
     // const existingRequest = await UserRequest.findOne({ 
@@ -6317,7 +6317,7 @@ exports.createRequest = async (req, res, next) => {
     // Create new request
     const newRequest = new UserRequest({
       name,
-      phone,
+      phone :  phone_number,
       email,
       message,
     });
@@ -6333,7 +6333,7 @@ exports.createRequest = async (req, res, next) => {
         appName: process.env.APP_NAME,
         name: name,
         email: email,
-        phone: phone,
+        phone: phone_number,
         message: message,
         appUrl: 'https://aestree.in',
         logoUrl: 'https://billionforms-files.blr1.cdn.digitaloceanspaces.com/CompanyLogo/aestree-logo.png',
