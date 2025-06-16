@@ -6362,47 +6362,141 @@ exports.createRequest = async (req, res, next) => {
   }
 };
 
-exports.softDeleteRequest = async (req, res, next) => {
+// get demo requests list
+exports.getDemoRequestList = async (req, res, next) => {
   try {
-    // Check for validation errors
-    const errors = validationResult(req);
-    if (!errors.isEmpty()) {
-      return res.status(httpsStatusCode.BadRequest).json({
-        success: false,
-        message: 'Validation failed',
-        errors: errors.array(),
-        errorCode: 'VALIDATION_ERROR',
-      });
-    }
+    const { keyword = '', page = 1, perPage = 10, companyId } = req.query;
+    const limit = perPage
+    const skip = (page - 1) * limit;
+    let filters = {
+      ...(keyword && {
+        $or: [
+          { name: { $regex: keyword.trim(), $options: "i" } },
+          { email: { $regex: keyword.trim(), $options: "i" } },
+          { phone: { $regex: keyword.trim(), $options: "i" } },
+          { message: { $regex: keyword.trim(), $options: "i" } },
+        ],
+      }),
+    };
 
-    const { id } = req.params;
-    // Find request and ensure it's not already soft-deleted
-    const request = await UserRequest.findOne({
-      _id: id,
-      deletedAt: null
+    const [requests, total] = await Promise.all([
+      UserRequest.find(filters).skip(skip).limit(limit).sort({ _id: -1 }).lean(),
+      UserRequest.countDocuments(filters),
+    ]);
+    return res.status(httpsStatusCode.OK).json({
+      success: true,
+      message: message.lblRequestFoundSuccessfully,
+      data: {
+        data: requests,
+        total: total
+      },
     });
+  } catch (error) {
+    console.error("Request getting error:", error);
+    return res.status(httpsStatusCode.InternalServerError).json({
+      success: false,
+      message: "Internal server error",
+      errorCode: "SERVER_ERROR",
+      error: process.env.NODE_ENV === "development" ? error.message : undefined,
+    });
+  }
+};
+
+exports.getIndividualRequest = async (req, res, next) => {
+  try {
+    const { id } = req.params;
+    const [request] = await Promise.all([
+      UserRequest.findById(id)
+        .lean()
+    ]);
     if (!request) {
       return res.status(httpsStatusCode.NotFound).json({
         success: false,
-        message: 'Request not found or already deleted',
-        errorCode: 'NOT_FOUND',
+        message: message.lblRequestNotFound,
       });
-    }
-    // Soft delete by setting deletedAt
-    request.deletedAt = new Date();
-    await request.save();
+    };
+
     return res.status(httpsStatusCode.OK).json({
       success: true,
-      message: 'Request soft deleted successfully',
-      data: { id },
+      message: message.lblRequestFoundSuccessfully,
+      data: {
+        data: request,
+      },
     });
   } catch (error) {
-    console.error('Error in softDeleteRequest:', error);
+    console.error("Request fetching error:", error);
     return res.status(httpsStatusCode.InternalServerError).json({
       success: false,
-      message: 'Internal server error',
-      errorCode: 'SERVER_ERROR',
-      error: error.message,
+      message: "Internal server error",
+      errorCode: "SERVER_ERROR",
+      error: process.env.NODE_ENV === "development" ? error.message : undefined,
+    });
+  }
+};
+
+
+exports.softDeleteRequest = async (req, res, next) => {
+  try {
+    const { clientId, keyword, page, perPage } = req.body;
+    req.query.keyword = keyword;
+    req.query.page = page;
+    req.query.perPage = perPage;
+    if (!clientId) {
+      return res.status(httpsStatusCode.BadRequest).send({
+        message: message.lblRequestIdrequired,
+      });
+    }
+    const request = await UserRequest.findByIdAndDelete(clientId);
+    // if (!request) {
+    //   return res.status(httpsStatusCode.NotFound).send({
+    //     message: message.lblRequestNotFound,
+    //   });
+    // }
+    // Object.assign(request, {
+    //   deletedAt: new Date(),
+    // });
+    // await request.save();
+    this.getDemoRequestList(req, res)
+  } catch (error) {
+    console.error("Request soft delete error:", error);
+    return res.status(httpsStatusCode.InternalServerError).json({
+      success: false,
+      message: "Internal server error",
+      errorCode: "SERVER_ERROR",
+      error: process.env.NODE_ENV === "development" ? error.message : undefined,
+    });
+  }
+};
+
+exports.restoreRequest = async (req, res, next) => {
+  try {
+    const { clientId, keyword, page, perPage,  } = req.body;
+    req.query.keyword = keyword;
+    req.query.page = page;
+    req.query.perPage = perPage;
+    if (!clientId) {
+      return res.status(httpsStatusCode.BadRequest).send({
+        message: message.lblRequestIdrequired,
+      });
+    }
+    const request = await UserRequest.findById(clientId);
+    if (!request) {
+      return res.status(httpsStatusCode.NotFound).send({
+        message: message.lblRequestNotFound,
+      });
+    }
+    Object.assign(request, {
+      deletedAt: null,
+    });
+    await request.save();
+    this.getDemoRequestList(req, res)
+  } catch (error) {
+    console.error("Request restore error:", error);
+    return res.status(httpsStatusCode.InternalServerError).json({
+      success: false,
+      message: "Internal server error",
+      errorCode: "SERVER_ERROR",
+      error: process.env.NODE_ENV === "development" ? error.message : undefined,
     });
   }
 };

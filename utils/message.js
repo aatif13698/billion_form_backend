@@ -100,6 +100,17 @@ module.exports = {
   lblUserIdrequired: "User Id id required!",
   lblUserAssignedSuccess: "User assigned successfully!",
 
+  // Demo requests
+  lblRequestNotFound: "Request not found!",
+  lblRequestAlreadyExists: "Request already exists with this email or phone!",
+  lblRequestCreatedSuccess: "Request created successfully!",
+  lblRequestUpdatedSuccess: "Request updated successfully!",
+  lblRequestFoundSuccessfully: "Request found successfully!",
+  lblRequestSoftDeletedSuccess: "Request soft deleted successfully!",
+  lblRequestRestoredSuccess: "Request restored succesfully!",
+  lblRequestIdrequired: "Request Id id required!",
+  lblRequestAssignedSuccess: "Request assigned successfully!",
+
   // staff
   lblStaffNotFound: "Staff not found!",
   lblStaffAlreadyExists: "Staff already exists with this email or phone!",

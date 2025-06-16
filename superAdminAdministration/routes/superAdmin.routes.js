@@ -517,14 +517,14 @@ router.post(
   superAdminController.createRequest
 );
 
-router.delete(
-  '/delete/request/:id',
-  [
-    param('id').isMongoId().withMessage('Invalid request ID'),
-  ],
-  superAdminController.softDeleteRequest
-);
 
+router.get('/get/demoRequest', superAdminAuth, superAdminController.getDemoRequestList);
+
+router.get('/get/demo/request/:id', superAdminAuth, superAdminController.getIndividualRequest);
+
+router.delete('/softdelete/demoRequest', superAdminAuth, superAdminController.softDeleteRequest);
+
+router.post('/restore/demoRequest', superAdminAuth, superAdminController.restoreRequest);
 
 
 // --------- Request a demo rooute ends here ----------------
