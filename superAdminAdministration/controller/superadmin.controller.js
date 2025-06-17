@@ -11,7 +11,7 @@ const { validationResult } = require('express-validator');
 
 
 const Roles = require("../../model/roles.model");
-const { getSerialNumber } = require("../../utils/commonFunction");
+const { getSerialNumber, getSerialNumberValue } = require("../../utils/commonFunction");
 const companyModel = require("../../model/company.model");
 const userModel = require("../../model/user.model");
 const subscriptionPlanModel = require("../../model/subscriptionPlan.model");
@@ -3641,11 +3641,30 @@ exports.getAllSession = async (req, res, next) => {
     const [sessions] = await Promise.all([
       sessionModel.find({ clientId: userId, organizationId: organizationId }).sort({ _id: 1 }).lean(),
     ]);
+
+    const sesstionArray = [];
+
+    if (sessions && sessions.length > 0) {
+      for (let index = 0; index < sessions.length; index++) {
+        const session = sessions[index];
+        const sessionId = sessions[index]._id;
+        const lastFormId = sessions[index].lastFormId;
+        const serialNumberValue = getSerialNumberValue(lastFormId)
+        const newFormCounts = await formDataModel.countDocuments({ sessionId: sessionId, number : {$gt : serialNumberValue }});
+        sesstionArray.push({
+          ...session,
+          newFormCounts: newFormCounts
+        })
+      }
+    }
+
+    console.log("sesstionArray",sesstionArray);
+    
     return res.status(httpsStatusCode.OK).json({
       success: true,
       message: message.lblSessionFoundSuccessfully,
       data: {
-        data: sessions,
+        data: sesstionArray,
       },
     });
   } catch (error) {
@@ -4334,9 +4353,11 @@ exports.submitForm = async (req, res, next) => {
 
     const serialNumber = await getSerialNumber("form");
     const password = `${firstName.substring(0, 2).toUpperCase()}${phone.substring(0, 3)}`;
+    const serialNumberValue = getSerialNumberValue(serialNumber);
 
     const formData = new formDataModel({
       serialNumber: serialNumber,
+      number: serialNumberValue,
       password: password,
       phone,
       firstName,
@@ -4395,7 +4416,7 @@ exports.bulkCreateForms = async (req, res) => {
     const { userId, organizationId, sessionId, firstName, basePhone, count, batchSize } = req.body;
     const countNum = parseInt(count, 10) || 2000;
     const batchSizeNum = parseInt(batchSize, 10) || 100;
-    if (!userId || !organizationId || !sessionId || !firstName || !basePhone || !req.files || req.files.length !== 1) {
+    if (!userId || !organizationId || !sessionId || !firstName || !basePhone) {
       // logger.warn('Missing required fields for bulk form creation', { userId });
       return res.status(httpsStatusCode.BadRequest).json({
         success: false,
@@ -4531,6 +4552,9 @@ exports.bulkCreateForms = async (req, res) => {
             const serialNumber = await commonFunction.getSerialNumber('form');
             const password = `${firstName.substring(0, 2).toUpperCase()}${phone.substring(0, 3)}`;
 
+            const serialNumberValue = getSerialNumberValue(serialNumber);
+
+
             const otherThanFiles = {
               ["First Name"]: firstName,
               ["Phone"]: phone
@@ -4538,6 +4562,7 @@ exports.bulkCreateForms = async (req, res) => {
 
             batchForms.push({
               serialNumber,
+              number: serialNumberValue,
               password,
               phone,
               firstName,
@@ -4926,15 +4951,39 @@ exports.loginToEditForm = async (req, res, next) => {
 // get all forms by session
 exports.getAllFormsBySession = async (req, res, next) => {
   try {
-    const { sessionId } = req.params;
+    const { sessionId, getall } = req.params;
     if (!sessionId) {
       return res.status(httpsStatusCode.BadRequest).send({
         success: false,
         message: message.lblRequiredFieldMissing,
         errorCode: "FIELD_MISSIING",
       });
+    };
+
+    const session = await sessionModel.findById(sessionId);
+    if (!session) {
+      return res.status(httpsStatusCode.NotFound).send({
+        success: false,
+        message: message.lblSessionNotFound,
+        errorCode: "SESSION_NOT_FOUND",
+      });
     }
-    const forms = await formDataModel.find({ sessionId: sessionId });
+    let query = {
+      sessionId: sessionId
+    }
+
+    if (getall == "0") {
+      if (session.lastFormId) {
+        const serialNumberValue = getSerialNumberValue(session.lastFormId);
+        query = {
+          ...query,
+          number: { $gt: serialNumberValue }
+        }
+      }
+    }
+
+
+    const forms = await formDataModel.find(query).sort({ _id: -1 });
     if (!forms) {
       return res.status(httpsStatusCode.NotFound).send({
         success: false,
@@ -4951,6 +5000,56 @@ exports.getAllFormsBySession = async (req, res, next) => {
     });
   } catch (error) {
     console.error("Field fetching error:", error);
+    return res.status(httpsStatusCode.InternalServerError).json({
+      success: false,
+      message: "Internal server error",
+      errorCode: "SERVER_ERROR",
+      error: process.env.NODE_ENV === "development" ? error.message : undefined,
+    });
+  }
+};
+
+// update last printed form id
+exports.updateLastPrintedFormId = async (req, res, next) => {
+  try {
+    const { sessionId, formId } = req.body;
+    if (!sessionId || !formId) {
+      return res.status(httpsStatusCode.BadRequest).send({
+        success: false,
+        message: message.lblRequiredFieldMissing,
+        errorCode: "FIELD_MISSIING",
+      });
+    }
+
+    const session = await sessionModel.findById(sessionId);
+    if (!session) {
+      return res.status(httpsStatusCode.NotFound).send({
+        success: false,
+        message: message.lblSessionNotFound,
+        errorCode: "SESSION_NOT_FOUND",
+      });
+    }
+
+    const form = await formDataModel.findOne({ serialNumber: formId, sessionId: sessionId });
+    if (!form) {
+      return res.status(httpsStatusCode.NotFound).send({
+        success: false,
+        message: message.lblFormNotFound,
+        errorCode: "FORM_NOT_FOUND",
+      });
+    }
+
+    session.lastFormId = form.serialNumber;
+    await session.save();
+    return res.status(httpsStatusCode.OK).json({
+      success: true,
+      message: message.lblFormFoundSuccessfully,
+      data: {
+        data: session,
+      },
+    });
+  } catch (error) {
+    console.error("Form Id updation error:", error);
     return res.status(httpsStatusCode.InternalServerError).json({
       success: false,
       message: "Internal server error",
@@ -6317,7 +6416,7 @@ exports.createRequest = async (req, res, next) => {
     // Create new request
     const newRequest = new UserRequest({
       name,
-      phone :  phone_number,
+      phone: phone_number,
       email,
       message,
     });
@@ -6470,7 +6569,7 @@ exports.softDeleteRequest = async (req, res, next) => {
 
 exports.restoreRequest = async (req, res, next) => {
   try {
-    const { clientId, keyword, page, perPage,  } = req.body;
+    const { clientId, keyword, page, perPage, } = req.body;
     req.query.keyword = keyword;
     req.query.page = page;
     req.query.perPage = perPage;

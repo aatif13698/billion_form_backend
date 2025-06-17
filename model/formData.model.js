@@ -4,6 +4,7 @@ const { Schema } = mongoose;
 const formDataSchema = new mongoose.Schema(
   {
     serialNumber: { type: String, default : null },
+    number: {type: Number, default : null},
     phone: { type: String, trim: true },
     firstName: { type: String, trim: true },
     otherThanFiles: {

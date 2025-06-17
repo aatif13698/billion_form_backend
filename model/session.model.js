@@ -24,6 +24,8 @@ const sessionSchema = new Schema(
         closeDate: { type: Date, default: null, index: true },
         formReceived: { type: Number, default: 0 },
 
+        lastFormId : { type: String, default: null },
+
         deletedAt: { type: Date, default: null, index: true },
     },
     { timestamps: true }

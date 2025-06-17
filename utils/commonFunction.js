@@ -654,6 +654,13 @@ async function updateRoleInDatbaseInstance() {
 }
 
 
+ const getSerialNumberValue = (serialNumber) => {
+      if (typeof serialNumber !== 'string') return 0;
+      const match = serialNumber.match(/^AES-BF-25-FM(\d+)$/);
+      return match ? parseInt(match[1], 10) : 0;
+    };
+
+
 // Export the functions
 module.exports = {
   insertRole,
@@ -673,5 +680,6 @@ module.exports = {
   encryptId,
   insertSingleRole,
   getRelativeFilePath,
-  updateRoleInDatbaseInstance
+  updateRoleInDatbaseInstance,
+  getSerialNumberValue
 };

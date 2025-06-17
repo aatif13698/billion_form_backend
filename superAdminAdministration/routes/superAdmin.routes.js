@@ -387,8 +387,9 @@ router.post('/delete/form', superAdminAuth, superAdminController.deleteForm);
 
 router.post('/login/form', superAdminController.loginToEditForm);
 
-router.get('/get/all/forms/:sessionId', superAdminController.getAllFormsBySession);
+router.get('/get/all/forms/:sessionId/:getall', superAdminController.getAllFormsBySession);
 
+router.post('/update/last/printed/form', superAdminController.updateLastPrintedFormId)
 
 router.get('/download', superAdminAndClientAuth, superAdminController.downloadSessionFiles);
 
