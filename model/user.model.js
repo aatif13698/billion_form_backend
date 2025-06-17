@@ -107,6 +107,8 @@ const userSchema = new Schema(
       }
     ],
 
+    meetingLink: { type: String, default: null },
+
     // handling client creation
     createdBy: { type: ObjectId, ref: "user", index: true }, // Index for admin/user relationships
     isCreatedBySuperAdmin: { type: Boolean, default: false, index: true },

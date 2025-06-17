@@ -9,7 +9,7 @@ const router = express.Router();
 const superAdminController = require("../controller/auth.controller");
 const { validateLoginInput, startCompanyServer, validateClientInput, getSerialNumber, restrictOtherCompany } = require("../../utils/commonFunction");
 
-const { superAdminAuth } = require("../../middleware/authorization/superAdmin");
+const { superAdminAuth, superAdminAndClientAuth } = require("../../middleware/authorization/superAdmin");
 const customFieldModel = require("../../model/customField.model");
 const companyModel = require("../../model/company.model");
 const userModel = require("../../model/user.model");
@@ -29,6 +29,10 @@ const BASE_PORT = process.env.PORT || 3000;
 router
   .route("/login")
   .post(validateLoginInput, restrictOtherCompany, superAdminController.login);
+
+router.get("/get/profile/:id", superAdminAndClientAuth, superAdminController.getProfile);
+
+router.put("/update/profile", superAdminAndClientAuth, superAdminController.updateProfile);
 
 
 

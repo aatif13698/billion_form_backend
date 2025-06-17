@@ -94,7 +94,7 @@ exports.login = async (req, res, next) => {
         accessToken: token,
         expiresIn: tokenExpiration,
       },
-      capability : user.role.capability
+      capability: user.role.capability
     };
 
     return res.status(200).json({
@@ -106,6 +106,90 @@ exports.login = async (req, res, next) => {
     console.error("Super Admin Login Error:", error);
 
     return res.status(500).json({
+      success: false,
+      message: "Internal server error",
+      errorCode: "SERVER_ERROR",
+      error: process.env.NODE_ENV === "development" ? error.message : undefined,
+    });
+  }
+};
+
+
+
+exports.getProfile = async (req, res, next) => {
+  try {
+    const { id } = req.params;
+    const [user] = await Promise.all([
+      User.findById(id).select('firstName lastName email phone  password meetingLink').lean()
+    ]);
+
+    if (!user) {
+      return res.status(httpsStatusCode.BadRequest).send({
+        message: message.lblUserNotFound,
+      });
+    }
+    return res.status(httpsStatusCode.OK).json({
+      success: true,
+      message: "Profile Found.",
+      data: {
+        data: user,
+      },
+    });
+  } catch (error) {
+    console.error("User fetching error:", error);
+    return res.status(httpsStatusCode.InternalServerError).json({
+      success: false,
+      message: "Internal server error",
+      errorCode: "SERVER_ERROR",
+      error: process.env.NODE_ENV === "development" ? error.message : undefined,
+    });
+  }
+};
+
+
+exports.updateProfile = async (req, res, next) => {
+  try {
+    const { clientId, firstName, lastName, email, phone, password } = req.body;
+    if (!clientId || !firstName || !lastName || !email || !phone ) {
+      return res.status(httpsStatusCode.BadRequest).send({
+        success: false,
+        message: message.lblRequiredFieldMissing,
+        errorCode: "FIELD_MISSIING",
+      });
+    }
+    const user = await User.findById(clientId);
+    if (!user) {
+      return res.status(httpsStatusCode.NotFound).json({
+        success: false,
+        message: message.lblUserNotFound,
+        errorCode: "USER_NOT_FOUND",
+      });
+    }
+    const existing = await User.findOne({
+      emial: email,
+      phone: phone,
+      _id: { $ne: clientId },
+    });
+    if (existing) {
+      return res.status(httpsStatusCode.Conflict).json({
+        success: false,
+        message: message.lblUserAlreadyExists,
+        errorCode: "USER_EXISTS",
+      });
+    }
+    Object.assign(user, {
+      firstName, lastName, email, phone    });
+    await user.save()
+    return res.status(httpsStatusCode.Created).json({
+      success: true,
+      message: message.lblUserUpdatedSuccess,
+      data: {
+        subscription: user,
+      },
+    });
+  } catch (error) {
+    console.error("User updating error:", error);
+    return res.status(httpsStatusCode.InternalServerError).json({
       success: false,
       message: "Internal server error",
       errorCode: "SERVER_ERROR",
