@@ -5763,7 +5763,7 @@ exports.downloadSessionFiles = async (req, res) => {
 // new 2
 exports.downloadFilesByField = async (req, res) => {
   try {
-    const { sessionId, fieldName, uniqueId } = req.query;
+    const { sessionId, fieldName, uniqueId, getall } = req.query;
     const user = req.user;
 
     console.log("uniqueId", uniqueId);
@@ -5786,13 +5786,30 @@ exports.downloadFilesByField = async (req, res) => {
       });
     }
 
+     let query = {
+      sessionId: sessionId
+    }
+
+    if (getall == "0") {
+      if (session.lastFormId) {
+        const serialNumberValue = getSerialNumberValue(session.lastFormId);
+        query = {
+          ...query,
+          number: { $gt: serialNumberValue }
+        }
+      }
+    }
+
     // Fetch forms with matching files (case-insensitive)
     const forms = await formDataModel
       .find({
-        sessionId,
+        ...query,
         'files.fieldName': { $regex: `^${fieldName}$`, $options: 'i' },
       })
       .lean();
+
+      console.log("forms",forms.length);
+      
 
 
 
