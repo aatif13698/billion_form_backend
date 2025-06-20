@@ -3650,7 +3650,7 @@ exports.getAllSession = async (req, res, next) => {
         const sessionId = sessions[index]._id;
         const lastFormId = sessions[index].lastFormId;
         const serialNumberValue = getSerialNumberValue(lastFormId)
-        const newFormCounts = await formDataModel.countDocuments({ sessionId: sessionId, number : {$gt : serialNumberValue }});
+        const newFormCounts = await formDataModel.countDocuments({ sessionId: sessionId, number: { $gt: serialNumberValue } });
         sesstionArray.push({
           ...session,
           newFormCounts: newFormCounts
@@ -3658,8 +3658,8 @@ exports.getAllSession = async (req, res, next) => {
       }
     }
 
-    console.log("sesstionArray",sesstionArray);
-    
+    console.log("sesstionArray", sesstionArray);
+
     return res.status(httpsStatusCode.OK).json({
       success: true,
       message: message.lblSessionFoundSuccessfully,
@@ -5763,7 +5763,7 @@ exports.downloadSessionFiles = async (req, res) => {
 // new 2
 exports.downloadFilesByField = async (req, res) => {
   try {
-    const { sessionId, fieldName, uniqueId, getall } = req.query;
+    const { sessionId, fieldName, uniqueId, getall, filters, } = req.query;
     const user = req.user;
 
     console.log("uniqueId", uniqueId);
@@ -5786,9 +5786,17 @@ exports.downloadFilesByField = async (req, res) => {
       });
     }
 
-     let query = {
-      sessionId: sessionId
+    let query = {
+      sessionId: sessionId,
     }
+
+    if (filters) {
+      query = {
+        ...query,
+        ...filters
+      }
+    }
+
 
     if (getall == "0") {
       if (session.lastFormId) {
@@ -5808,8 +5816,8 @@ exports.downloadFilesByField = async (req, res) => {
       })
       .lean();
 
-      console.log("forms",forms.length);
-      
+    console.log("forms", forms.length);
+
 
 
 
