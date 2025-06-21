@@ -5779,8 +5779,12 @@ exports.downloadSessionFiles = async (req, res) => {
 // new 2
 exports.downloadFilesByField = async (req, res) => {
   try {
-    const { sessionId, fieldName, uniqueId, getall, filters, } = req.query;
+    const { sessionId, fieldName, uniqueId, getall, filters, perPage=10, page=1} = req.query;
+    console.log("req.query",req.query);
+    
     const user = req.user;
+    const limit = perPage
+    const skip = (page - 1) * limit;
 
     console.log("uniqueId", uniqueId);
 
@@ -5824,12 +5828,15 @@ exports.downloadFilesByField = async (req, res) => {
       }
     }
 
+    console.log("query",query);
+    
+
     // Fetch forms with matching files (case-insensitive)
     const forms = await formDataModel
       .find({
         ...query,
         'files.fieldName': { $regex: `^${fieldName}$`, $options: 'i' },
-      })
+      }).skip(skip).limit(limit)
       .lean();
 
     console.log("forms", forms.length);
