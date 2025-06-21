@@ -44,10 +44,10 @@ async function insertSingleRole() {
   try {
     const roleName = "superAdminStaff";
     const roleId = 4;
-    const existingRole = await Roles.findOne({name: roleName, id: roleId});
-    if(existingRole){
+    const existingRole = await Roles.findOne({ name: roleName, id: roleId });
+    if (existingRole) {
       console.log(`${roleName} role already exists.`);
-      return 
+      return
     }
 
     const newRole = await Roles.create({
@@ -402,8 +402,8 @@ const restrictOtherCompany = async (req, res, next) => {
 
     }
 
-    console.log("access",access);
-    
+    console.log("access", access);
+
     const { identifier } = req.body;
     const identifierType = req.identifierType;
     const query = identifierType === "email"
@@ -413,8 +413,8 @@ const restrictOtherCompany = async (req, res, next) => {
       .populate("role")
       .select("_id email phone");
 
-      console.log("user",user);
-      
+    console.log("user", user);
+
 
     const findUserAccess = access.users.filter((item) => {
       return item?._id?.toString() === user._id.toString();
@@ -450,8 +450,8 @@ const restrictOtherCompany = async (req, res, next) => {
       const user = await User.findOne(query)
         .populate("role")
         .select("_id email phone");
-        console.log("user",user);
-        
+      console.log("user", user);
+
       const findUserAccess = access.users.filter((item) => {
         return item?._id?.toString() === user?._id.toString();
       });
@@ -465,7 +465,7 @@ const restrictOtherCompany = async (req, res, next) => {
       req.company = null;
 
       return res.status(403).json({ message: "No subdomain detected" });
-      
+
     }
 
     // const subdomain = host.split('.')[0];
@@ -637,28 +637,34 @@ const getRelativeFilePath = (fileUrl) => {
 
 
 async function updateRoleInDatbaseInstance() {
-    try {
-        const capability = data.defaultSuperAdminStaffPersmissionsList;
-        const existing = await Roles.findOne({ id: 4 });
-        if (existing) {
-            existing.capability = capability;
-            existing.name = "staff";
-            await existing.save();
-            console.log("Role Updatedn successfully...");
-        } else {
-            console.log("role not found");
-        }
-    } catch (error) {
-        console.log("error while creating the petient", error);
+  try {
+    const capability = data.defaultSuperAdminStaffPersmissionsList;
+    const existing = await Roles.findOne({ id: 4 });
+    if (existing) {
+      existing.capability = capability;
+      existing.name = "staff";
+      await existing.save();
+      console.log("Role Updatedn successfully...");
+    } else {
+      console.log("role not found");
     }
+  } catch (error) {
+    console.log("error while creating the petient", error);
+  }
 }
 
 
- const getSerialNumberValue = (serialNumber) => {
-      if (typeof serialNumber !== 'string') return 0;
-      const match = serialNumber.match(/^AES-BF-25-FM(\d+)$/);
-      return match ? parseInt(match[1], 10) : 0;
-    };
+const getSerialNumberValue = (serialNumber) => {
+  if (typeof serialNumber !== 'string') return 0;
+  const match = serialNumber.match(/^AES-BF-25-FM(\d+)$/);
+  return match ? parseInt(match[1], 10) : 0;
+};
+
+
+function extractAfterFM(input) {
+  const match = input.match(/FM(\d+)/);
+  return match ? match[1] : null;
+}
 
 
 // Export the functions
@@ -681,5 +687,6 @@ module.exports = {
   insertSingleRole,
   getRelativeFilePath,
   updateRoleInDatbaseInstance,
-  getSerialNumberValue
+  getSerialNumberValue,
+  extractAfterFM
 };

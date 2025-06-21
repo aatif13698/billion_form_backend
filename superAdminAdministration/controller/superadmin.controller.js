@@ -8,6 +8,8 @@ const httpsStatusCode = require("../../utils/https-status-code");
 const message = require("../../utils/message");
 require('dotenv').config(); // Load environment variables first
 const { validationResult } = require('express-validator');
+const path = require('path'); // Make sure this is at the top of your file
+
 
 
 const Roles = require("../../model/roles.model");
@@ -4314,6 +4316,8 @@ exports.submitForm = async (req, res, next) => {
         });
       }
     }
+    const serialNumber = await getSerialNumber("form");
+
     const otherThanFiles = {};
     for (const [key, value] of Object.entries(req.body)) {
       if (key !== "userId" && key !== "organizationId" && key !== "sessionId" && key !== "phone" && key !== "firstName") {
@@ -4323,8 +4327,12 @@ exports.submitForm = async (req, res, next) => {
     const files = [];
     if (req.files && req.files.length > 0) {
       for (const file of req.files) {
-        const fileSerialNumber = await commonFunction.getFileSerialNumber("fileSerialNumber")
-        const key = `form-dynamic-file/${organization.serialNumber}/${formSession.serialNumber}/${file.fieldname}/${fileSerialNumber}_${file.originalname.toLowerCase().replace(/[^a-zA-Z0-9.-]/g, '')}`;
+        console.log("file", file);
+        // const fileSerialNumber = await commonFunction.getFileSerialNumber("fileSerialNumber")
+        const fileSerialNumber = commonFunction.extractAfterFM(serialNumber);
+        const ext = path.extname(file.originalname).toLowerCase();
+
+        const key = `form-dynamic-file/${organization.serialNumber}/${formSession.serialNumber}/${file.fieldname}/${fileSerialNumber}${ext}`;
         const params = {
           Bucket: process.env.DO_SPACES_BUCKET,
           Key: key,
@@ -4351,7 +4359,6 @@ exports.submitForm = async (req, res, next) => {
       console.log("No files uploaded");
     }
 
-    const serialNumber = await getSerialNumber("form");
     const password = `${firstName.substring(0, 2).toUpperCase()}${phone.substring(0, 3)}`;
     const serialNumberValue = getSerialNumberValue(serialNumber);
 
@@ -4507,6 +4514,7 @@ exports.bulkCreateForms = async (req, res) => {
           throw new Error('basePhone must be a valid number');
         }
 
+
         let processedForms = 0;
         const batchCount = Math.ceil(countNum / batchSizeNum);
         let failedForms = 0;
@@ -4520,9 +4528,14 @@ exports.bulkCreateForms = async (req, res) => {
 
           // Prepare forms for batch
           for (let i = batchStart; i < batchEnd; i++) {
+            const serialNumber = await commonFunction.getSerialNumber('form');
+
             const phone = (basePhoneNum + i).toString().padStart(10, '0');
-            const fileSerialNumber = await commonFunction.getFileSerialNumber('fileSerialNumber');
-            const key = `form-dynamic-file/${organization.serialNumber}/${formSession.serialNumber}/${file.fieldname}/${fileSerialNumber}_${file.originalname.toLowerCase().replace(/[^a-zA-Z0-9.-]/g, '')}`;
+            // const fileSerialNumber = await commonFunction.getFileSerialNumber('fileSerialNumber');
+            const fileSerialNumber = commonFunction.extractAfterFM(serialNumber);
+            const ext = path.extname(file.originalname).toLowerCase();
+
+            const key = `form-dynamic-file/${organization.serialNumber}/${formSession.serialNumber}/${file.fieldname}/${fileSerialNumber}${ext}`;
 
             const params = {
               Bucket: process.env.DO_SPACES_BUCKET,
@@ -4549,7 +4562,6 @@ exports.bulkCreateForms = async (req, res) => {
               continue;
             }
 
-            const serialNumber = await commonFunction.getSerialNumber('form');
             const password = `${firstName.substring(0, 2).toUpperCase()}${phone.substring(0, 3)}`;
 
             const serialNumberValue = getSerialNumberValue(serialNumber);
@@ -4808,8 +4820,12 @@ exports.updateForm = async (req, res, next) => {
     const files = [];
     if (req.files && req.files.length > 0) {
       for (const file of req.files) {
-        const fileSerialNumber = await commonFunction.getFileSerialNumber("fileSerialNumber")
-        const key = `form-dynamic-file/${organization.serialNumber}/${formSession.serialNumber}/${file.fieldname}/${fileSerialNumber}_${file.originalname.toLowerCase().replace(/[^a-zA-Z0-9.-]/g, '')}`;
+        // const fileSerialNumber = await commonFunction.getFileSerialNumber("fileSerialNumber");
+        const fileSerialNumber = commonFunction.extractAfterFM(formData.serialNumber);
+        const ext = path.extname(file.originalname).toLowerCase();
+
+
+        const key = `form-dynamic-file/${organization.serialNumber}/${formSession.serialNumber}/${file.fieldname}/${fileSerialNumber}${ext}`;
         const params = {
           Bucket: process.env.DO_SPACES_BUCKET,
           Key: key,
