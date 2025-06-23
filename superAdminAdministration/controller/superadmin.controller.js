@@ -5836,13 +5836,10 @@ exports.downloadFilesByField = async (req, res) => {
       .find({
         ...query,
         'files.fieldName': { $regex: `^${fieldName}$`, $options: 'i' },
-      }).skip(skip).limit(limit)
+      }).skip(skip).limit(limit).sort({ _id: 1 })
       .lean();
 
-    console.log("forms", forms.length);
-
-
-
+    // console.log("forms", forms);
 
     // Extract files and ensure correct key
     const files = forms
