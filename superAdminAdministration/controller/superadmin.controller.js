@@ -3445,11 +3445,11 @@ exports.createSession = async (req, res, next) => {
     const user = req.user;
     const company = req.company;
     const companyId = user.companyId;
-    if(!companyId){
+    if (!companyId) {
       return res.status(httpsStatusCode.BadRequest).send({
         success: false,
         message: message.lblCompanyIdrequired,
-      }); 
+      });
 
     }
     // console.log("company", company);
@@ -3482,7 +3482,7 @@ exports.createSession = async (req, res, next) => {
     // Create the session without the link initially
     const newSession = await sessionModel.create({
       serialNumber: serial,
-      companyId : companyId,
+      companyId: companyId,
       // clientId: user?._id,
       createdBy: user?._id,
       organizationId: organizationId,
@@ -3789,7 +3789,7 @@ exports.createField = async (req, res, next) => {
   try {
 
     const user = req.user;
-     if(!user.companyId){
+    if (!user.companyId) {
       return res.status(httpsStatusCode.BadRequest).send({
         success: false,
         message: message.lblCompanyIdrequired,
@@ -3807,7 +3807,7 @@ exports.createField = async (req, res, next) => {
       aspectRation,
       gridConfig,
 
-      
+
       sessionId
     } = req.body;
 
@@ -3895,16 +3895,16 @@ exports.createField = async (req, res, next) => {
 // delete field
 exports.deleteField = async (req, res, next) => {
   try {
-     const user = req.user;
-     if(!user.companyId){
+    const user = req.user;
+    if (!user.companyId) {
       return res.status(httpsStatusCode.BadRequest).send({
         success: false,
         message: message.lblCompanyIdrequired,
       });
 
     }
-    const {  sessionId, fieldId } = req.params;
-    if ( !sessionId || !fieldId) {
+    const { sessionId, fieldId } = req.params;
+    if (!sessionId || !fieldId) {
       return res.status(httpsStatusCode.BadRequest).json({
         success: false,
         message: message.lblRequiredFieldMissing,
@@ -3959,7 +3959,7 @@ exports.updateFieldOrder = async (req, res, next) => {
     const { fields } = req.body;
     const user = req.user;
 
-     if(!user.companyId){
+    if (!user.companyId) {
       return res.status(httpsStatusCode.BadRequest).send({
         success: false,
         message: message.lblCompanyIdrequired,
@@ -3968,7 +3968,7 @@ exports.updateFieldOrder = async (req, res, next) => {
     }
 
 
-    if ( !sessionId || !fields || !Array.isArray(fields) || fields.length === 0) {
+    if (!sessionId || !fields || !Array.isArray(fields) || fields.length === 0) {
       return res.status(httpsStatusCode.BadRequest).json({
         success: false,
         message: message?.lblRequiredFieldMissing,
@@ -4048,15 +4048,15 @@ exports.updateFieldOrder = async (req, res, next) => {
 exports.getAllFields = async (req, res, next) => {
   try {
     const user = req.user;
-    const {  sessionId } = req.params;
-    if ( !sessionId) {
+    const { sessionId } = req.params;
+    if (!sessionId) {
       return res.status(httpsStatusCode.BadRequest).send({
         success: false,
         message: message.lblRequiredFieldMissing,
         errorCode: "FIELD_MISSIING",
       });
     }
-    if(!user.companyId){
+    if (!user.companyId) {
       return res.status(httpsStatusCode.BadRequest).send({
         success: false,
         message: message.lblCompanyIdrequired,
@@ -4333,7 +4333,7 @@ exports.checkPasword = async (req, res, next) => {
 exports.submitForm = async (req, res, next) => {
   try {
     const { organizationId, sessionId, phone, firstName } = req.body;
-    if ( !organizationId || !sessionId) {
+    if (!organizationId || !sessionId) {
       return res.status(httpsStatusCode.BadRequest).send({
         success: false,
         message: message.lblRequiredFieldMissing,
@@ -4350,7 +4350,7 @@ exports.submitForm = async (req, res, next) => {
     }
 
     const companyId = organization.companyId;
-    if(!companyId){
+    if (!companyId) {
       return res.status(httpsStatusCode.BadRequest).send({
         success: false,
         message: message.lblCompanyIdrequired,
@@ -4359,8 +4359,8 @@ exports.submitForm = async (req, res, next) => {
 
     const Company = await companyModel.findById(companyId);
 
-    if(!Company){
-       return res.status(httpsStatusCode.NotFound).send({
+    if (!Company) {
+      return res.status(httpsStatusCode.NotFound).send({
         success: false,
         message: message.lblCompanyNotFound,
       });
@@ -4374,10 +4374,10 @@ exports.submitForm = async (req, res, next) => {
         errorCode: "SESSION_NOT_FOUND",
       });
     }
-    const user = await userModel.findOne({email : Company.adminEmail});
+    const user = await userModel.findOne({ email: Company.adminEmail });
 
-    if(!user){
-       return res.status(httpsStatusCode.NotFound).send({
+    if (!user) {
+      return res.status(httpsStatusCode.NotFound).send({
         success: false,
         message: message.lblUserNotFound,
       });
@@ -4505,10 +4505,10 @@ exports.submitForm = async (req, res, next) => {
 // Bulk create forms for testing
 exports.bulkCreateForms = async (req, res) => {
   try {
-    const {  organizationId, sessionId, firstName, basePhone, count, batchSize } = req.body;
+    const { organizationId, sessionId, firstName, basePhone, count, batchSize } = req.body;
     const countNum = parseInt(count, 10) || 2000;
     const batchSizeNum = parseInt(batchSize, 10) || 100;
-    if ( !organizationId || !sessionId || !firstName || !basePhone) {
+    if (!organizationId || !sessionId || !firstName || !basePhone) {
       // logger.warn('Missing required fields for bulk form creation', { userId });
       return res.status(httpsStatusCode.BadRequest).json({
         success: false,
@@ -4546,7 +4546,7 @@ exports.bulkCreateForms = async (req, res) => {
 
 
     const companyId = organization.companyId;
-    if(!companyId){
+    if (!companyId) {
       return res.status(httpsStatusCode.BadRequest).send({
         success: false,
         message: message.lblCompanyIdrequired,
@@ -4555,8 +4555,8 @@ exports.bulkCreateForms = async (req, res) => {
 
     const Company = await companyModel.findById(companyId);
 
-    if(!Company){
-       return res.status(httpsStatusCode.NotFound).send({
+    if (!Company) {
+      return res.status(httpsStatusCode.NotFound).send({
         success: false,
         message: message.lblCompanyNotFound,
       });
@@ -4571,10 +4571,10 @@ exports.bulkCreateForms = async (req, res) => {
         errorCode: 'SESSION_NOT_FOUND',
       });
     }
-    const user = await userModel.findOne({email : Company.adminEmail});
+    const user = await userModel.findOne({ email: Company.adminEmail });
     let subscribed;
     if (user.roleId !== 1) {
-      subscribed = await subscribedUserModel.findOne({ userId : user._id });
+      subscribed = await subscribedUserModel.findOne({ userId: user._id });
       if (!subscribed) {
         return res.status(httpsStatusCode.NotFound).json({
           success: false,
@@ -4595,7 +4595,7 @@ exports.bulkCreateForms = async (req, res) => {
     const jobId = uuidv4();
     await BulkJob.create({
       jobId,
-      userId : user._id,
+      userId: user._id,
       sessionId,
       status: 'pending',
       progress: 0,
@@ -4745,7 +4745,7 @@ exports.bulkCreateForms = async (req, res) => {
     });
   } catch (error) {
     console.log('Bulk form creation initiation error', { error: error.message });
-    console.log('error',error);
+    console.log('error', error);
     return res.status(httpsStatusCode.InternalServerError).json({
       success: false,
       message: 'Internal server error',
@@ -4865,7 +4865,7 @@ exports.updateForm = async (req, res, next) => {
         errorCode: "INVALID_ID",
       });
     }
-    if ( !organizationId || !sessionId) {
+    if (!organizationId || !sessionId) {
       return res.status(httpsStatusCode.BadRequest).send({
         success: false,
         message: message.lblRequiredFieldMissing,
@@ -6653,7 +6653,7 @@ exports.getIndividualRequest = async (req, res, next) => {
   try {
     const { id } = req.params;
     const [request] = await Promise.all([
-      UserRequest.findById(id)
+      UserRequest.findById(id).populate('replies.sentBy', 'firstName lastName email _id')
         .lean()
     ]);
     if (!request) {
@@ -6747,3 +6747,69 @@ exports.restoreRequest = async (req, res, next) => {
     });
   }
 };
+
+
+exports.addReply = async (req, res) => {
+  try {
+    const { subject, message, meetingLink } = req.body;
+    console.log("req.body",req.body);
+    
+    const request = await UserRequest.findById(req.params.id);
+    if (!request || request.deletedAt) {
+      throw createError(httpsStatusCode.NotFound, 'Request not found');
+    }
+
+    let normalizedMeetingLink = meetingLink || null;
+    if (meetingLink && !/^https?:\/\//i.test(meetingLink)) {
+      normalizedMeetingLink = `https://${meetingLink}`;
+    }
+
+    const reply = {
+      sentBy: req.user._id,
+      subject: subject,
+      message: message,
+      meetingLink: normalizedMeetingLink
+    };
+    request.replies.push(reply);
+    request.status = request.replies.length === 1 ? 'in_progress' : request.status;
+    await request.save();
+
+    const mailOptions = {
+      from: process.env.EMAIL_FROM,
+      to: request.email,
+      subject: subject,
+      template: "responseOfRequest",
+      context: {
+        appName: process.env.APP_NAME,
+        name: request.name,
+        email: request.email,
+        phone: request.phone,
+        message: message,
+        meetingLink: normalizedMeetingLink,
+        appUrl: 'https://aestree.in',
+        logoUrl: 'https://billionforms-files.blr1.cdn.digitaloceanspaces.com/CompanyLogo/aestree-logo.png',
+        contactEmail: 'contact@aestree.in',
+        contactPhone: '+91 80694 56009',
+        emailSignature: 'Customer Success Team',
+        currentYear: new Date().getFullYear(),
+      },
+    };
+    await mailSender(mailOptions);
+    request.replies[request.replies.length - 1].isSent = true;
+    await request.save();
+
+    const newReply = await await UserRequest.findById(req.params.id).populate('replies.sentBy', 'firstName lastName email _id')
+    return res.status(httpsStatusCode.OK).json({
+      success: true,
+      data: newReply,
+    });
+  } catch (error) {
+    console.error("Request soft delete error:", error);
+    return res.status(httpsStatusCode.InternalServerError).json({
+      success: false,
+      message: "Internal server error",
+      errorCode: "SERVER_ERROR",
+      error: process.env.NODE_ENV === "development" ? error.message : undefined,
+    });
+  }
+}

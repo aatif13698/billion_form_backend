@@ -527,6 +527,8 @@ router.delete('/softdelete/demoRequest', superAdminAuth, superAdminController.so
 
 router.post('/restore/demoRequest', superAdminAuth, superAdminController.restoreRequest);
 
+router.post('/:id/reply', superAdminAuth, superAdminController.addReply );
+
 
 // --------- Request a demo rooute ends here ----------------
 
