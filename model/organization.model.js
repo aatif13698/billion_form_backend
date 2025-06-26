@@ -14,7 +14,9 @@ const ObjectId = Schema.ObjectId;
 
 const organizationSchema = new Schema(
     {
-        userId: { type: ObjectId, ref: "User", index: true },
+        // userId: { type: ObjectId, ref: "User", index: true },
+        companyId: { type: ObjectId, ref: "Company", default: null, index: true },
+        createdBy: { type: ObjectId, ref: "User", index: true },
         assignedUser: [
             {
                 type: ObjectId,

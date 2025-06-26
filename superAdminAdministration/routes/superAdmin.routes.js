@@ -349,7 +349,7 @@ router.delete("/delete/session", superAdminAndClientAuth, superAdminController.d
 
 router.post("/activeInactive/session", superAdminAndClientAuth, superAdminController.activeInactiveSession);
 
-router.get('/get/session/all/:userId/:organizationId', superAdminAndClientAuth, superAdminController.getAllSession);
+router.get('/get/session/all/:organizationId', superAdminAndClientAuth, superAdminController.getAllSession);
 
 router.get('/get/session/:sessionId', superAdminAndClientAuth, superAdminController.getSession);
 
@@ -361,11 +361,11 @@ router.get('/get/session/:sessionId', superAdminAndClientAuth, superAdminControl
 
 router.post('/create/field', superAdminAndClientAuth, superAdminController.createField);
 
-router.delete('/delete/field/:userId/:sessionId/:fieldId', superAdminAndClientAuth, superAdminController.deleteField);
+router.delete('/delete/field/:sessionId/:fieldId', superAdminAndClientAuth, superAdminController.deleteField);
 
-router.post("/update/order/field/:userId/:sessionId", superAdminAndClientAuth, superAdminController.updateFieldOrder);
+router.post("/update/order/field/:sessionId", superAdminAndClientAuth, superAdminController.updateFieldOrder);
 
-router.get('/get/field/all/:userId/:sessionId', superAdminAndClientAuth, superAdminController.getAllFields);
+router.get('/get/field/all/:sessionId', superAdminAndClientAuth, superAdminController.getAllFields);
 
 router.get('/get/field/bysession/:sessionId', superAdminController.getAllFieldsBySession);
 

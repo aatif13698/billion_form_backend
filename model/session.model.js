@@ -11,7 +11,9 @@ const ObjectId = Schema.ObjectId;
 const sessionSchema = new Schema(
     {
         serialNumber: { type: String, default: null },
-        clientId: { type: ObjectId, ref: "user", index: true },
+        companyId: { type: ObjectId, ref: "Company", default: null, index: true },
+
+        // clientId: { type: ObjectId, ref: "user", index: true },
         createdBy: { type: ObjectId, ref: "user", index: true },
         organizationId: { type: ObjectId, ref: "organization", index: true },
 

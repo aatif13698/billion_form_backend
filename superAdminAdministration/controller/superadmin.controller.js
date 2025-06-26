@@ -2908,7 +2908,8 @@ exports.createOrganization = async (req, res) => {
 
     // Create new organization
     const newOrganization = await organizationModel.create({
-      userId: user._id,
+      // userId: user._id,
+      companyId: user.companyId,
       serialNumber: serial,
       name,
       captionText,
@@ -3241,12 +3242,22 @@ exports.getAllOrganization = async (req, res, next) => {
     const { userId } = req.params;
 
     console.log("user", user);
+    console.log("userId", userId);
+    const companyId = user.companyId;
+
+    if (!companyId) {
+      return res.status(httpsStatusCode.NotFound).json({
+        success: false,
+        message: message.lblCompanyIdrequired,
+      });
+    }
+
 
     let listOrganization = []
 
     if (user.roleId < 3) {
       const [organizarions] = await Promise.all([
-        organizationModel.find({ userId: userId }).sort({ _id: 1 }).lean(),
+        organizationModel.find({ companyId: companyId }).sort({ _id: 1 }).lean(),
       ]);
       listOrganization = organizarions;
     } else if (user.roleId == 3) {
@@ -3254,10 +3265,12 @@ exports.getAllOrganization = async (req, res, next) => {
         organizationModel.find({ assignedUser: { $in: user._id }, deletedAt: null }).sort({ _id: 1 }).lean(),
       ]);
       listOrganization = organizarions;
+    } else if (user.roleId > 3) {
+      const [organizarions] = await Promise.all([
+        organizationModel.find({ companyId: companyId }).sort({ _id: 1 }).lean(),
+      ]);
+      listOrganization = organizarions;
     }
-
-
-
 
     return res.status(httpsStatusCode.OK).json({
       success: true,
@@ -3431,10 +3444,16 @@ exports.createSession = async (req, res, next) => {
   try {
     const user = req.user;
     const company = req.company;
+    const companyId = user.companyId;
+    if(!companyId){
+      return res.status(httpsStatusCode.BadRequest).send({
+        success: false,
+        message: message.lblCompanyIdrequired,
+      }); 
+
+    }
     // console.log("company", company);
-
     const { organizationId, name, forWhom, isActive, closeDate, isPasswordRequired, password } = req.body;
-
     console.log("req.body", req.body);
 
     if (!organizationId || !name || !forWhom || !isActive || !closeDate) {
@@ -3463,7 +3482,8 @@ exports.createSession = async (req, res, next) => {
     // Create the session without the link initially
     const newSession = await sessionModel.create({
       serialNumber: serial,
-      clientId: user?._id,
+      companyId : companyId,
+      // clientId: user?._id,
       createdBy: user?._id,
       organizationId: organizationId,
       name: name,
@@ -3496,7 +3516,8 @@ exports.createSession = async (req, res, next) => {
           order: 1
         },
         isDeleteAble: false,
-        userId: user?._id,
+        // userId: user?._id,
+        companyId: user.companyId,
         sessionId: sessionId,
         createdBy: user?._id,
       },
@@ -3514,7 +3535,8 @@ exports.createSession = async (req, res, next) => {
           order: 2
         },
         isDeleteAble: false,
-        userId: user?._id,
+        // userId: user?._id,
+        companyId: user.companyId,
         sessionId: sessionId,
         createdBy: user?._id,
       },
@@ -3637,11 +3659,13 @@ exports.deleteSession = async (req, res, next) => {
 // get all session
 exports.getAllSession = async (req, res, next) => {
   try {
-    const { userId, organizationId } = req.params;
+    const { organizationId } = req.params;
+    const user = req.user;
+
     console.log("req.params", req.params);
 
     const [sessions] = await Promise.all([
-      sessionModel.find({ clientId: userId, organizationId: organizationId }).sort({ _id: 1 }).lean(),
+      sessionModel.find({ companyId: user.companyId, organizationId: organizationId }).sort({ _id: 1 }).lean(),
     ]);
 
     const sesstionArray = [];
@@ -3761,7 +3785,17 @@ exports.activeInactiveSession = async (req, res, next) => {
 
 
 exports.createField = async (req, res, next) => {
+
   try {
+
+    const user = req.user;
+     if(!user.companyId){
+      return res.status(httpsStatusCode.BadRequest).send({
+        success: false,
+        message: message.lblCompanyIdrequired,
+      });
+
+    }
     const {
       name,
       label,
@@ -3773,7 +3807,7 @@ exports.createField = async (req, res, next) => {
       aspectRation,
       gridConfig,
 
-      userId,
+      
       sessionId
     } = req.body;
 
@@ -3787,7 +3821,7 @@ exports.createField = async (req, res, next) => {
       return res.status(400).send({ error: 'Name, label, and type are required' });
     }
 
-    if (!userId || !sessionId) {
+    if (!sessionId) {
       return res.status(httpsStatusCode.BadRequest).send({
         success: false,
         message: message.lblRequiredFieldMissing,
@@ -3795,7 +3829,7 @@ exports.createField = async (req, res, next) => {
       });
     }
     // Check for duplicate field name (optional, depending on your requirements)
-    const existingField = await customFormModel.findOne({ name, userId, sessionId });
+    const existingField = await customFormModel.findOne({ name, companyId: user.companyId, sessionId });
     if (existingField) {
       return res.status(400).send({ error: 'A field with this name already exists' });
     }
@@ -3811,7 +3845,7 @@ exports.createField = async (req, res, next) => {
       }
     }
     const maxOrderField = await customFormModel.findOne(
-      { userId, sessionId },
+      { companyId: user.companyId, sessionId },
       { "gridConfig.order": 1 }
     )
       .sort({ "gridConfig.order": -1 })
@@ -3842,7 +3876,8 @@ exports.createField = async (req, res, next) => {
       aspectRation: aspectRation,
       gridConfig: finalGridConfig,
       createdBy: req.user._id,
-      userId: userId,
+      // userId: userId,
+      companyId: user.companyId,
       sessionId: sessionId
     });
     // Save to database
@@ -3860,8 +3895,16 @@ exports.createField = async (req, res, next) => {
 // delete field
 exports.deleteField = async (req, res, next) => {
   try {
-    const { userId, sessionId, fieldId } = req.params;
-    if (!userId || !sessionId || !fieldId) {
+     const user = req.user;
+     if(!user.companyId){
+      return res.status(httpsStatusCode.BadRequest).send({
+        success: false,
+        message: message.lblCompanyIdrequired,
+      });
+
+    }
+    const {  sessionId, fieldId } = req.params;
+    if ( !sessionId || !fieldId) {
       return res.status(httpsStatusCode.BadRequest).json({
         success: false,
         message: message.lblRequiredFieldMissing,
@@ -3869,7 +3912,6 @@ exports.deleteField = async (req, res, next) => {
       });
     }
     if (
-      !mongoose.Types.ObjectId.isValid(userId) ||
       !mongoose.Types.ObjectId.isValid(sessionId) ||
       !mongoose.Types.ObjectId.isValid(fieldId)
     ) {
@@ -3883,7 +3925,7 @@ exports.deleteField = async (req, res, next) => {
     const field = await customFormModel.findOne({
       _id: fieldId,
       sessionId: sessionId,
-      userId: userId,
+      companyId: user.companyId,
     });
 
     if (!field) {
@@ -3913,10 +3955,20 @@ exports.deleteField = async (req, res, next) => {
 
 exports.updateFieldOrder = async (req, res, next) => {
   try {
-    const { userId, sessionId } = req.params;
+    const { sessionId } = req.params;
     const { fields } = req.body;
+    const user = req.user;
 
-    if (!userId || !sessionId || !fields || !Array.isArray(fields) || fields.length === 0) {
+     if(!user.companyId){
+      return res.status(httpsStatusCode.BadRequest).send({
+        success: false,
+        message: message.lblCompanyIdrequired,
+      });
+
+    }
+
+
+    if ( !sessionId || !fields || !Array.isArray(fields) || fields.length === 0) {
       return res.status(httpsStatusCode.BadRequest).json({
         success: false,
         message: message?.lblRequiredFieldMissing,
@@ -3925,7 +3977,6 @@ exports.updateFieldOrder = async (req, res, next) => {
     }
 
     if (
-      !mongoose.Types.ObjectId.isValid(userId) ||
       !mongoose.Types.ObjectId.isValid(sessionId) ||
       !fields.every((f) => mongoose.Types.ObjectId.isValid(f.fieldId))
     ) {
@@ -3958,7 +4009,7 @@ exports.updateFieldOrder = async (req, res, next) => {
     const fieldIds = fields.map((f) => f.fieldId);
     const existingFields = await customFormModel.find({
       _id: { $in: fieldIds },
-      userId,
+      companyId: user.companyId,
       sessionId,
       // createdBy: userId,
     });
@@ -3973,7 +4024,7 @@ exports.updateFieldOrder = async (req, res, next) => {
 
     const updatePromises = fields.map(({ fieldId, order }) =>
       customFormModel.updateOne(
-        { _id: fieldId, userId, sessionId },
+        { _id: fieldId, companyId: user.companyId, sessionId },
         { $set: { "gridConfig.order": order } }
       )
     );
@@ -3996,16 +4047,24 @@ exports.updateFieldOrder = async (req, res, next) => {
 
 exports.getAllFields = async (req, res, next) => {
   try {
-    const { userId, sessionId } = req.params;
-    if (!userId || !sessionId) {
+    const user = req.user;
+    const {  sessionId } = req.params;
+    if ( !sessionId) {
       return res.status(httpsStatusCode.BadRequest).send({
         success: false,
         message: message.lblRequiredFieldMissing,
         errorCode: "FIELD_MISSIING",
       });
     }
+    if(!user.companyId){
+      return res.status(httpsStatusCode.BadRequest).send({
+        success: false,
+        message: message.lblCompanyIdrequired,
+      });
+
+    }
     const [fields] = await Promise.all([
-      customFormModel.find({ userId: userId, sessionId: sessionId }).sort({ _id: 1 }).lean(),
+      customFormModel.find({ companyId: user.companyId, sessionId: sessionId }).sort({ _id: 1 }).lean(),
     ]);
     return res.status(httpsStatusCode.OK).json({
       success: true,
@@ -4273,8 +4332,8 @@ exports.checkPasword = async (req, res, next) => {
 // submit form new
 exports.submitForm = async (req, res, next) => {
   try {
-    const { userId, organizationId, sessionId, phone, firstName } = req.body;
-    if (!userId || !organizationId || !sessionId) {
+    const { organizationId, sessionId, phone, firstName } = req.body;
+    if ( !organizationId || !sessionId) {
       return res.status(httpsStatusCode.BadRequest).send({
         success: false,
         message: message.lblRequiredFieldMissing,
@@ -4289,6 +4348,24 @@ exports.submitForm = async (req, res, next) => {
         errorCode: "ORGANIZATION_NOT_FOUND",
       });
     }
+
+    const companyId = organization.companyId;
+    if(!companyId){
+      return res.status(httpsStatusCode.BadRequest).send({
+        success: false,
+        message: message.lblCompanyIdrequired,
+      });
+    }
+
+    const Company = await companyModel.findById(companyId);
+
+    if(!Company){
+       return res.status(httpsStatusCode.NotFound).send({
+        success: false,
+        message: message.lblCompanyNotFound,
+      });
+    }
+
     const formSession = await sessionModel.findById(sessionId);
     if (!formSession) {
       return res.status(httpsStatusCode.NotFound).send({
@@ -4297,10 +4374,17 @@ exports.submitForm = async (req, res, next) => {
         errorCode: "SESSION_NOT_FOUND",
       });
     }
-    const user = await userModel.findById(userId);
+    const user = await userModel.findOne({email : Company.adminEmail});
+
+    if(!user){
+       return res.status(httpsStatusCode.NotFound).send({
+        success: false,
+        message: message.lblUserNotFound,
+      });
+    }
     let subscribed;
     if (user.roleId !== 1) {
-      subscribed = await subscribedUserModel.findOne({ userId: userId });
+      subscribed = await subscribedUserModel.findOne({ userId: user._id });
       if (!subscribed) {
         return res.status(httpsStatusCode.NotFound).send({
           success: false,
@@ -4369,7 +4453,8 @@ exports.submitForm = async (req, res, next) => {
       phone,
       firstName,
       sessionId,
-      userId,
+      // userId,
+      companyId: organization.companyId,
       organizationId,
       otherThanFiles: new Map(Object.entries(otherThanFiles || {})),
       files,
@@ -4420,10 +4505,10 @@ exports.submitForm = async (req, res, next) => {
 // Bulk create forms for testing
 exports.bulkCreateForms = async (req, res) => {
   try {
-    const { userId, organizationId, sessionId, firstName, basePhone, count, batchSize } = req.body;
+    const {  organizationId, sessionId, firstName, basePhone, count, batchSize } = req.body;
     const countNum = parseInt(count, 10) || 2000;
     const batchSizeNum = parseInt(batchSize, 10) || 100;
-    if (!userId || !organizationId || !sessionId || !firstName || !basePhone) {
+    if ( !organizationId || !sessionId || !firstName || !basePhone) {
       // logger.warn('Missing required fields for bulk form creation', { userId });
       return res.status(httpsStatusCode.BadRequest).json({
         success: false,
@@ -4458,6 +4543,25 @@ exports.bulkCreateForms = async (req, res) => {
         errorCode: 'ORGANIZATION_NOT_FOUND',
       });
     }
+
+
+    const companyId = organization.companyId;
+    if(!companyId){
+      return res.status(httpsStatusCode.BadRequest).send({
+        success: false,
+        message: message.lblCompanyIdrequired,
+      });
+    }
+
+    const Company = await companyModel.findById(companyId);
+
+    if(!Company){
+       return res.status(httpsStatusCode.NotFound).send({
+        success: false,
+        message: message.lblCompanyNotFound,
+      });
+    }
+
     const formSession = await sessionModel.findById(sessionId);
     if (!formSession) {
       // logger.warn('Session not found', { sessionId });
@@ -4467,12 +4571,11 @@ exports.bulkCreateForms = async (req, res) => {
         errorCode: 'SESSION_NOT_FOUND',
       });
     }
-    const user = await userModel.findById(userId);
+    const user = await userModel.findOne({email : Company.adminEmail});
     let subscribed;
     if (user.roleId !== 1) {
-      subscribed = await subscribedUserModel.findOne({ userId });
+      subscribed = await subscribedUserModel.findOne({ userId : user._id });
       if (!subscribed) {
-        logger.warn('Subscribed user not found', { userId });
         return res.status(httpsStatusCode.NotFound).json({
           success: false,
           message: message.lblSubscribedUserNotFound,
@@ -4480,7 +4583,6 @@ exports.bulkCreateForms = async (req, res) => {
         });
       }
       if (subscribed.totalFormLimit < countNum) {
-        logger.warn('Form limit exceeded', { userId, totalFormLimit: subscribed.totalFormLimit, count: countNum });
         return res.status(httpsStatusCode.Conflict).json({
           success: false,
           message: 'Form limit exceeded',
@@ -4493,7 +4595,7 @@ exports.bulkCreateForms = async (req, res) => {
     const jobId = uuidv4();
     await BulkJob.create({
       jobId,
-      userId,
+      userId : user._id,
       sessionId,
       status: 'pending',
       progress: 0,
@@ -4579,7 +4681,8 @@ exports.bulkCreateForms = async (req, res) => {
               phone,
               firstName,
               sessionId,
-              userId,
+              companyId: organization.companyId,
+              // userId : user._id,
               organizationId,
               otherThanFiles: otherThanFiles,
               files: [fileData],
@@ -4642,6 +4745,7 @@ exports.bulkCreateForms = async (req, res) => {
     });
   } catch (error) {
     console.log('Bulk form creation initiation error', { error: error.message });
+    console.log('error',error);
     return res.status(httpsStatusCode.InternalServerError).json({
       success: false,
       message: 'Internal server error',
@@ -4761,7 +4865,7 @@ exports.updateForm = async (req, res, next) => {
         errorCode: "INVALID_ID",
       });
     }
-    if (!userId || !organizationId || !sessionId) {
+    if ( !organizationId || !sessionId) {
       return res.status(httpsStatusCode.BadRequest).send({
         success: false,
         message: message.lblRequiredFieldMissing,
@@ -4769,7 +4873,6 @@ exports.updateForm = async (req, res, next) => {
       });
     }
     if (
-      !mongoose.Types.ObjectId.isValid(userId) ||
       !mongoose.Types.ObjectId.isValid(organizationId) ||
       !mongoose.Types.ObjectId.isValid(sessionId)
     ) {
@@ -4855,7 +4958,7 @@ exports.updateForm = async (req, res, next) => {
     formData.phone = phone !== undefined ? phone : formData.phone;
     formData.firstName = firstName !== undefined ? firstName : formData.firstName;
     formData.sessionId = sessionId;
-    formData.userId = userId;
+    // formData.userId = userId;
     formData.organizationId = organizationId;
     formData.otherThanFiles = new Map(Object.entries(otherThanFiles || {}));
     if (files.length > 0) {
@@ -5779,9 +5882,9 @@ exports.downloadSessionFiles = async (req, res) => {
 // new 2
 exports.downloadFilesByField = async (req, res) => {
   try {
-    const { sessionId, fieldName, uniqueId, getall, filters, perPage=10, page=1} = req.query;
-    console.log("req.query",req.query);
-    
+    const { sessionId, fieldName, uniqueId, getall, filters, perPage = 10, page = 1 } = req.query;
+    console.log("req.query", req.query);
+
     const user = req.user;
     const limit = perPage
     const skip = (page - 1) * limit;
@@ -5828,8 +5931,8 @@ exports.downloadFilesByField = async (req, res) => {
       }
     }
 
-    console.log("query",query);
-    
+    console.log("query", query);
+
 
     // Fetch forms with matching files (case-insensitive)
     const forms = await formDataModel

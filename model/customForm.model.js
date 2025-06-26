@@ -32,7 +32,8 @@ const customFormSchema = new mongoose.Schema({
     order: Number
   },
   isDeleteAble: { type: Boolean, default: true },
-  userId: { type: mongoose.Schema.Types.ObjectId, ref: 'user' },
+  // userId: { type: mongoose.Schema.Types.ObjectId, ref: 'user' },
+  companyId: { type: mongoose.Schema.Types.ObjectId, ref: "Company", default: null, index: true },
   sessionId: { type: mongoose.Schema.Types.ObjectId, ref: 'session' },
   createdBy: { type: mongoose.Schema.Types.ObjectId, ref: 'user' },
   // createdAt: { type: Date, default: Date.now }

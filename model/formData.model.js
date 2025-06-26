@@ -23,7 +23,9 @@ const formDataSchema = new mongoose.Schema(
       },
     ],
     password: { type: String, required: true },
-    userId: { type: mongoose.Schema.Types.ObjectId, ref: "user", index: true },
+    // userId: { type: mongoose.Schema.Types.ObjectId, ref: "user", index: true },
+    companyId: { type: mongoose.Schema.Types.ObjectId, ref: "Company", default: null, index: true },
+
     organizationId: { type: mongoose.Schema.Types.ObjectId, ref: "organization", index: true },
     sessionId: { type: mongoose.Schema.Types.ObjectId, ref: "session", index: true, required: true },
   },
