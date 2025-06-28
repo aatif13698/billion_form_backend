@@ -385,121 +385,250 @@ function extractPath(url) {
 }
 
 
+// const restrictOtherCompany = async (req, res, next) => {
+//   const host = req.headers.host;
+//   const origin = req.headers.origin;
+//   if (IS_DEV) {
+//     // const port = parseInt(host.split(':')[1] || BASE_PORT);  
+//     const port = parseInt(origin?.match(/\d{4}$/)[0] || BASE_PORT);
+//     const company = await companyModel.findOne({ port });
+//     const access = await accessModel.findOne({ companyId: company?._id }).populate("users");
+//     if (!access) {
+//       return res.status(httpsStatusCode.NotFound).send({
+//         success: false,
+//         message: "Access not found",
+//         errorCode: "UNAUTHORIZED",
+//       })
+
+//     }
+
+//     console.log("access", access);
+
+//     const { identifier } = req.body;
+//     const identifierType = req.identifierType;
+//     const query = identifierType === "email"
+//       ? { email: identifier.toLowerCase() }
+//       : { phone: identifier };
+
+//       console.log("query",query);
+      
+//     const user = await User.findOne(query)
+//       .populate("role")
+//       .select("_id email phone");
+
+//     console.log("user", user);
+
+
+//     const findUserAccess = access.users.filter((item) => {
+//       return item._id?.toString() === user._id.toString();
+//     });
+//     if (findUserAccess.length == 0) {
+//       return res.status(403).json({ message: "User does not have access to this company" });
+//     }
+//     req.company = company;
+//   } else {
+//     const domainParts = origin?.split('.');
+
+//     if (domainParts?.length >= 3) {
+//       const subdomain = domainParts[0];
+//       console.log("subdomain:", subdomain);
+//       const aaa = extractPath(subdomain);
+//       console.log("aaa:", aaa);
+
+//       const company = await companyModel.findOne({ subDomain: aaa });
+//       const access = await accessModel.findOne({ companyId: company?._id }).populate("users");
+//       if (!access) {
+//         return res.status(httpsStatusCode.NotFound).send({
+//           success: false,
+//           message: "Access not found",
+//           errorCode: "UNAUTHORIZED",
+//         })
+//       }
+
+//       const { identifier } = req.body;
+//       const identifierType = req.identifierType;
+//       const query = identifierType === "email"
+//         ? { email: identifier.toLowerCase() }
+//         : { phone: identifier };
+//       const user = await User.findOne(query)
+//         .populate("role")
+//         .select("_id email phone");
+//       console.log("user", user);
+
+//       const findUserAccess = access.users.filter((item) => {
+//         return item?._id?.toString() === user?._id.toString();
+//       });
+//       if (findUserAccess?.length == 0) {
+//         return res.status(403).json({ message: "User does not have access to this company" });
+//       }
+//       req.company = company;
+//     } else {
+
+//       console.log("No subdomain detected");
+//       req.company = null;
+
+//       return res.status(403).json({ message: "No subdomain detected" });
+
+//     }
+
+//     // const subdomain = host.split('.')[0];
+//     // const company = await companyModel.findOne({ subdomain });
+//     // const access = await accessModel.findOne({ companyId: company?._id }).populate("users");
+//     // if (!access) {
+//     //   return res.status(httpsStatusCode.NotFound).send({
+//     //     success: false,
+//     //     message: "Access not found",
+//     //     errorCode: "UNAUTHORIZED",
+//     //   })
+
+//     // }
+//     // const { identifier } = req.body;
+//     // const identifierType = req.identifierType;
+//     // const query = identifierType === "email"
+//     //   ? { email: identifier.toLowerCase() }
+//     //   : { phone: identifier };
+//     // const user = await User.findOne(query)
+//     //   .populate("role")
+//     //   .select("_id email phone");
+//     // const findUserAccess = access.users.filter((item) => {
+//     //   return item?._id?.toString() === user._id.toString();
+//     // });
+//     // if (findUserAccess.length == 0) {
+//     //   return res.status(403).json({ message: "User does not have access to this company" });
+//     // }
+//     // req.company = company;
+//   }
+
+//   // if (!req.company) {
+//   //   return res.status(404).json({ error: 'Company not found' });
+//   // }
+//   next();
+// };
+
+
 const restrictOtherCompany = async (req, res, next) => {
-  const host = req.headers.host;
-  const origin = req.headers.origin;
-  if (IS_DEV) {
-    // const port = parseInt(host.split(':')[1] || BASE_PORT);  
-    const port = parseInt(origin?.match(/\d{4}$/)[0] || BASE_PORT);
-    const company = await companyModel.findOne({ port });
-    const access = await accessModel.findOne({ companyId: company?._id }).populate("users");
-    if (!access) {
-      return res.status(httpsStatusCode.NotFound).send({
-        success: false,
-        message: "Access not found",
-        errorCode: "UNAUTHORIZED",
-      })
-
-    }
-
-    console.log("access", access);
-
-    const { identifier } = req.body;
-    const identifierType = req.identifierType;
-    const query = identifierType === "email"
-      ? { email: identifier.toLowerCase() }
-      : { phone: identifier };
-    const user = await User.findOne(query)
-      .populate("role")
-      .select("_id email phone");
-
-    console.log("user", user);
-
-
-    const findUserAccess = access.users.filter((item) => {
-      return item._id?.toString() === user._id.toString();
+  // Validate input parameters
+  const { identifier } = req.body;
+  const identifierType = req.identifierType;
+  if (!identifier || !['email', 'phone'].includes(identifierType)) {
+    return res.status(httpsStatusCode.BadRequest).json({
+      success: false,
+      message: 'Invalid or missing identifier or identifierType',
+      errorCode: 'INVALID_INPUT',
     });
-    if (findUserAccess.length == 0) {
-      return res.status(403).json({ message: "User does not have access to this company" });
-    }
-    req.company = company;
-  } else {
-    const domainParts = origin?.split('.');
-
-    if (domainParts?.length >= 3) {
-      const subdomain = domainParts[0];
-      console.log("subdomain:", subdomain);
-      const aaa = extractPath(subdomain);
-      console.log("aaa:", aaa);
-
-      const company = await companyModel.findOne({ subDomain: aaa });
-      const access = await accessModel.findOne({ companyId: company?._id }).populate("users");
-      if (!access) {
-        return res.status(httpsStatusCode.NotFound).send({
-          success: false,
-          message: "Access not found",
-          errorCode: "UNAUTHORIZED",
-        })
-      }
-
-      const { identifier } = req.body;
-      const identifierType = req.identifierType;
-      const query = identifierType === "email"
-        ? { email: identifier.toLowerCase() }
-        : { phone: identifier };
-      const user = await User.findOne(query)
-        .populate("role")
-        .select("_id email phone");
-      console.log("user", user);
-
-      const findUserAccess = access.users.filter((item) => {
-        return item?._id?.toString() === user?._id.toString();
-      });
-      if (findUserAccess?.length == 0) {
-        return res.status(403).json({ message: "User does not have access to this company" });
-      }
-      req.company = company;
-    } else {
-
-      console.log("No subdomain detected");
-      req.company = null;
-
-      return res.status(403).json({ message: "No subdomain detected" });
-
-    }
-
-    // const subdomain = host.split('.')[0];
-    // const company = await companyModel.findOne({ subdomain });
-    // const access = await accessModel.findOne({ companyId: company?._id }).populate("users");
-    // if (!access) {
-    //   return res.status(httpsStatusCode.NotFound).send({
-    //     success: false,
-    //     message: "Access not found",
-    //     errorCode: "UNAUTHORIZED",
-    //   })
-
-    // }
-    // const { identifier } = req.body;
-    // const identifierType = req.identifierType;
-    // const query = identifierType === "email"
-    //   ? { email: identifier.toLowerCase() }
-    //   : { phone: identifier };
-    // const user = await User.findOne(query)
-    //   .populate("role")
-    //   .select("_id email phone");
-    // const findUserAccess = access.users.filter((item) => {
-    //   return item?._id?.toString() === user._id.toString();
-    // });
-    // if (findUserAccess.length == 0) {
-    //   return res.status(403).json({ message: "User does not have access to this company" });
-    // }
-    // req.company = company;
   }
 
-  // if (!req.company) {
-  //   return res.status(404).json({ error: 'Company not found' });
-  // }
-  next();
+  // Normalize identifier
+  const query = identifierType === 'email' ? { email: identifier.toLowerCase() } : { phone: identifier };
+
+  try {
+    let company;
+
+    if (IS_DEV) {
+      // Handle development environment with port-based lookup
+      const origin = req.headers.origin;
+      if (!origin) {
+        return res.status(httpsStatusCode.BadRequest).json({
+          success: false,
+          message: 'Origin header required in development environment',
+          errorCode: 'MISSING_ORIGIN',
+        });
+      }
+
+      const portMatch = origin.match(/\d{4}$/);
+      const port = portMatch ? parseInt(portMatch[0], 10) : process.env.BASE_PORT;
+      if (!port) {
+        return res.status(httpsStatusCode.BadRequest).json({
+          success: false,
+          message: 'Invalid port in origin header',
+          errorCode: 'INVALID_PORT',
+        });
+      }
+
+      company = await companyModel.findOne({ port }).lean();
+    } else {
+      // Handle production environment with subdomain-based lookup
+      const origin = req.headers.origin;
+      if (!origin) {
+        return res.status(httpsStatusCode.BadRequest).json({
+          success: false,
+          message: 'Origin header required',
+          errorCode: 'MISSING_ORIGIN',
+        });
+      }
+
+      const domainParts = origin.split('.');
+      if (domainParts.length < 3) {
+        return res.status(httpsStatusCode.Forbidden).json({
+          success: false,
+          message: 'No subdomain detected',
+          errorCode: 'NO_SUBDOMAIN',
+        });
+      }
+
+      const subdomain = domainParts[0];
+      const extractedSubdomain = extractPath(subdomain); // Assumes extractPath is defined
+      if (!extractedSubdomain) {
+        logger.warn('Failed to extract subdomain', { subdomain });
+        return res.status(httpsStatusCode.BadRequest).json({
+          success: false,
+          message: 'Invalid subdomain',
+          errorCode: 'INVALID_SUBDOMAIN',
+        });
+      }
+
+      company = await companyModel.findOne({ subDomain: extractedSubdomain }).lean();
+    }
+
+    // Check if company exists
+    if (!company) {
+      return res.status(httpsStatusCode.NotFound).json({
+        success: false,
+        message: 'Company not found',
+        errorCode: 'COMPANY_NOT_FOUND',
+      });
+    }
+
+    // Fetch access record with users populated
+    const access = await accessModel.findOne({ companyId: company._id }).populate('users').lean();
+    if (!access) {
+      return res.status(httpsStatusCode.NotFound).json({
+        success: false,
+        message: 'Access not found',
+        errorCode: 'UNAUTHORIZED',
+      });
+    }
+
+    // Fetch user
+    const user = await User.findOne(query).populate('role').select('_id email phone').lean();
+    if (!user) {
+      return res.status(httpsStatusCode.NotFound).json({
+        success: false,
+        message: 'User not found',
+        errorCode: 'USER_NOT_FOUND',
+      });
+    }
+
+    // Check if user has access to the company
+    const hasAccess = access.users.some((item) => item._id.toString() === user._id.toString());
+    if (!hasAccess) {
+      return res.status(httpsStatusCode.Forbidden).json({
+        success: false,
+        message: 'User does not have access to this company',
+        errorCode: 'ACCESS_DENIED',
+      });
+    }
+
+    // Attach company to request
+    req.company = company;
+    next();
+  } catch (error) {
+    return res.status(httpsStatusCode.InternalServerError).json({
+      success: false,
+      message: 'Internal server error',
+      errorCode: 'SERVER_ERROR',
+    });
+  }
 };
 
 function startCompanyServer(port) {
