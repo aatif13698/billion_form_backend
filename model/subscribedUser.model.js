@@ -18,10 +18,9 @@ const subscribedUserSchema = new Schema(
         userId: { type: ObjectId, ref: "User", index: true },
         subscription: [
             {
-
                 subscriptionId: { type: ObjectId, ref: 'subscriptionPlan', required: true },
                 startDate: { type: Date, default: Date.now },
-                endDate: { type: Date }, // For subscription expiration
+                endDate: { type: Date, default: null }, // For subscription expiration
                 status: { type: String, enum: ['active', 'inactive'], default: 'active' },
                 createdBy: { type: ObjectId, ref: "User", index: true },
                 isPlanExpired : {type: Boolean, default: false}
@@ -31,7 +30,7 @@ const subscribedUserSchema = new Schema(
             {
                 topupId: { type: ObjectId, ref: 'topup', required: true },
                 startDate: { type: Date, default: Date.now },
-                endDate: { type: Date }, // For subscription expiration
+                endDate: { type: Date, default: null }, // For subscription expiration
                 status: { type: String, enum: ['active', 'inactive'], default: 'active' },
                 createdBy: { type: ObjectId, ref: "User", index: true },
                 isPlanExpired : {type: Boolean, default: false}
@@ -43,6 +42,9 @@ const subscribedUserSchema = new Schema(
         totalFormLimit: { type: Number, required: true },
         totalOrgLimit: { type: Number, required: true },
         totalUserLimint: { type: Number, required: true },
+
+        // final expiry date
+        finalExpiryDate: { type: Date, default: null }
 
         
 

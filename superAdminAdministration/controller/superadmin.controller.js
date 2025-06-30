@@ -1864,7 +1864,7 @@ exports.getAllSubscriptionPlan = async (req, res, next) => {
     };
 
     const [subscriptionPlans] = await Promise.all([
-      subscriptionPlanModel.find(filters).sort({ _id: 1 }).select('serialNumber name subscriptionCharge _id'),
+      subscriptionPlanModel.find(filters).sort({ _id: 1 }).select('serialNumber name subscriptionCharge validityPeriod _id'),
     ]);
 
     return res.status(httpsStatusCode.OK).json({
@@ -2370,13 +2370,16 @@ exports.createSubscsribed = async (req, res, next) => {
       });
     }
 
+    const newEndDate = commonFunction.calculateEndDate(existing.validityPeriod);
+
+
     // const existingPlan = await subscribedUserModel.findOne({ userId: userId });
     let subscribedUser = await subscribedUserModel.findOne({ userId });
     if (subscribedUser) {
       subscribedUser.subscription.push({
         subscriptionId,
         startDate: new Date(),
-        endDate: commonFunction.calculateEndDate(existing.validityPeriod),
+        endDate: newEndDate,
         createdBy: req.user._id,
         status: 'active',
         isPlanExpired: false,
@@ -2386,6 +2389,12 @@ exports.createSubscsribed = async (req, res, next) => {
       subscribedUser.totalFormLimit += existing.formLimit;
       subscribedUser.totalOrgLimit += existing.organisationLimit;
       subscribedUser.totalUserLimint += existing.userLimint;
+
+      if (!subscribedUser.finalExpiryDate  || newEndDate > subscribedUser.finalExpiryDate) {
+        subscribedUser.finalExpiryDate = newEndDate;
+      } else if (newEndDate == null) {
+        subscribedUser.finalExpiryDate = null;
+      }
 
       await subscribedUser.save();
       return res.status(httpsStatusCode.OK).json({
@@ -2403,7 +2412,7 @@ exports.createSubscsribed = async (req, res, next) => {
         {
           subscriptionId,
           startDate: new Date(),
-          endDate: commonFunction.calculateEndDate(existing.validityPeriod),
+          endDate: newEndDate,
           createdBy: req.user._id,
           status: 'active',
           isPlanExpired: false,
@@ -2412,6 +2421,8 @@ exports.createSubscsribed = async (req, res, next) => {
       totalFormLimit: existing.formLimit,
       totalOrgLimit: existing.organisationLimit,
       totalUserLimint: existing.userLimint,
+      finalExpiryDate: newEndDate
+
     });
 
     // Add user to subscription plan's subscribers
