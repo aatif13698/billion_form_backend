@@ -2390,10 +2390,18 @@ exports.createSubscsribed = async (req, res, next) => {
       subscribedUser.totalOrgLimit += existing.organisationLimit;
       subscribedUser.totalUserLimint += existing.userLimint;
 
-      if (!subscribedUser.finalExpiryDate  || newEndDate > subscribedUser.finalExpiryDate) {
-        subscribedUser.finalExpiryDate = newEndDate;
-      } else if (newEndDate == null) {
+      const unlimitedSubsc = subscribedUser.subscription && subscribedUser.subscription.filter((item) => item.endDate == null);
+
+      console.log("unlimitedSubsc", unlimitedSubsc);
+
+      if (unlimitedSubsc.length > 0) {
         subscribedUser.finalExpiryDate = null;
+      } else {
+        if (!subscribedUser.finalExpiryDate || newEndDate > subscribedUser.finalExpiryDate) {
+          subscribedUser.finalExpiryDate = newEndDate;
+        } else if (newEndDate == null) {
+          subscribedUser.finalExpiryDate = null;
+        }
       }
 
       await subscribedUser.save();

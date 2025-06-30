@@ -127,6 +127,18 @@ const defaultSuperAdminPersmissionsList = [
                     activeActive: { id: 45, access: true, api: "/demo/path" },
                 }
             },
+             {
+                name: "Leads",
+                displayName: "All Leads",
+                access: true,
+                subMenus: {
+                    create: { id: 46, access: true, api: "/demo/path" },
+                    view: { id: 47, access: true, api: "/demo/path" },
+                    update: { id: 48, access: true, api: "/demo/path" },
+                    softDelete: { id: 49, access: true, api: "/demo/path" },
+                    activeActive: { id: 50, access: true, api: "/demo/path" },
+                }
+            }
         ]
     },
 
@@ -324,6 +336,18 @@ const defaultSuperAdminStaffPersmissionsList = [
                     activeActive: { id: 45, access: false, api: "/demo/path" },
                 }
             },
+            {
+                name: "Leads",
+                displayName: "All Leads",
+                access: false,
+                subMenus: {
+                    create: { id: 46, access: false, api: "/demo/path" },
+                    view: { id: 47, access: false, api: "/demo/path" },
+                    update: { id: 48, access: false, api: "/demo/path" },
+                    softDelete: { id: 49, access: false, api: "/demo/path" },
+                    activeActive: { id: 50, access: false, api: "/demo/path" },
+                }
+            }
         ]
     },
 
