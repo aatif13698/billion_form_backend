@@ -956,6 +956,7 @@ exports.restoreStaff = async (req, res, next) => {
 exports.createUser = async (req, res, next) => {
   try {
     const company = req.company;
+    const user = req.user;
     if (!company) {
       return res.status(httpsStatusCode.NotFound).json({
         success: false,
@@ -965,6 +966,26 @@ exports.createUser = async (req, res, next) => {
     }
 
     // console.log("company",company);
+
+    let subscribed;
+    if (user.roleId !== 1) {
+      subscribed = await subscribedUserModel.findOne({ userId: user._id });
+      if (!subscribed) {
+        return res.status(httpsStatusCode.NotFound).send({
+          success: false,
+          message: message.lblSubscribedUserNotFound,
+          errorCode: "SUBSCRIBED_NOT_FOUND",
+        });
+      }
+      if (subscribed.totalUserLimint == 0) {
+        return res.status(httpsStatusCode.Conflict).send({
+          success: false,
+          message: "User Limit Exceded.",
+          errorCode: "ORGANIZATION_LIMIT_EXCEDED",
+        });
+      }
+    }
+
 
 
     const access = await accessModel.findOne({ companyId: company._id });
@@ -1014,7 +1035,14 @@ exports.createUser = async (req, res, next) => {
     const savedUser = await newUser.save();
     access.users = [...access.users, savedUser._id];
 
-    await access.save()
+    await access.save();
+
+
+    if (user.roleId !== 1) {
+      subscribed.totalUserLimint = subscribed.totalUserLimint - 1;
+      subscribed.save();
+    }
+
     // Remove sensitive data from response
     const userResponse = savedUser.toObject();
     delete userResponse.password;
@@ -6752,8 +6780,8 @@ exports.restoreRequest = async (req, res, next) => {
 exports.addReply = async (req, res) => {
   try {
     const { subject, message, meetingLink } = req.body;
-    console.log("req.body",req.body);
-    
+    console.log("req.body", req.body);
+
     const request = await UserRequest.findById(req.params.id);
     if (!request || request.deletedAt) {
       throw createError(httpsStatusCode.NotFound, 'Request not found');
