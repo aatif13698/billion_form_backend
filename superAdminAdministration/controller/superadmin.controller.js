@@ -338,6 +338,7 @@ exports.getAllClients = async (req, res, next) => {
       deletedAt: null,
       isActive: true,
       roleId: 2,
+      isClient: true
     };
     const [clients] = await Promise.all([
       User.find(filters).select('firstName lastName serialNumber email phone _id')
@@ -370,6 +371,7 @@ exports.getClientsList = async (req, res, next) => {
     let filters = {
       // deletedAt: null,
       roleId: 2,
+      isClient: true,
       ...(keyword && {
         $or: [
           { firstName: { $regex: keyword.trim(), $options: "i" } },
@@ -1703,7 +1705,7 @@ exports.restoreCompany = async (req, res, next) => {
 exports.createSubscription = async (req, res, next) => {
   try {
 
-    const { name, country, currency, subscriptionCharge, validityPeriod, formLimit, organisationLimit, userLimint, } = req.body;
+    const { name, country, currency, subscriptionCharge, validityPeriod, formLimit, organisationLimit, userLimint, isDemoSubscription } = req.body;
     if (!name || !country || !currency || !subscriptionCharge || !validityPeriod || !formLimit || !organisationLimit || !userLimint) {
       return res.status(httpsStatusCode.BadRequest).send({
         success: false,
@@ -1726,7 +1728,7 @@ exports.createSubscription = async (req, res, next) => {
     const newSubscriptionPlan = await subscriptionPlanModel.create({
       serialNumber: serial,
       activatedOn: new Date(),
-      name, country, currency, subscriptionCharge, validityPeriod, formLimit, organisationLimit, userLimint,
+      name, country, currency, subscriptionCharge, validityPeriod, formLimit, organisationLimit, userLimint, isDemoSubscription
     })
 
     // Return success response
@@ -1753,7 +1755,7 @@ exports.createSubscription = async (req, res, next) => {
 exports.updateSubscription = async (req, res, next) => {
   try {
 
-    const { subscriptionPlanId, name, country, currency, subscriptionCharge, validityPeriod, formLimit, organisationLimit, userLimint, } = req.body;
+    const { subscriptionPlanId, name, country, currency, subscriptionCharge, validityPeriod, formLimit, organisationLimit, userLimint, isDemoSubscription } = req.body;
     if (!name || !country || !currency || !subscriptionCharge || !validityPeriod || !formLimit || !organisationLimit || !userLimint) {
       return res.status(httpsStatusCode.BadRequest).send({
         success: false,
@@ -1781,7 +1783,7 @@ exports.updateSubscription = async (req, res, next) => {
       });
     }
     Object.assign(currentSubscriptionPlan, {
-      name, country, currency, subscriptionCharge, validityPeriod, formLimit, organisationLimit, userLimint,
+      name, country, currency, subscriptionCharge, validityPeriod, formLimit, organisationLimit, userLimint, isDemoSubscription
     });
     await currentSubscriptionPlan.save()
     // Return success response
@@ -1861,6 +1863,39 @@ exports.getAllSubscriptionPlan = async (req, res, next) => {
     let filters = {
       isActive: true,
       deletedAt: null,
+    };
+
+    const [subscriptionPlans] = await Promise.all([
+      subscriptionPlanModel.find(filters).sort({ _id: 1 }).select('serialNumber name subscriptionCharge validityPeriod _id'),
+    ]);
+
+    return res.status(httpsStatusCode.OK).json({
+      success: true,
+      message: message.lblSubscriptionPlanFoundSuccessfully,
+      data: {
+        data: subscriptionPlans,
+      },
+    });
+  } catch (error) {
+    console.error("Subscription fetching error:", error);
+    return res.status(httpsStatusCode.InternalServerError).json({
+      success: false,
+      message: "Internal server error",
+      errorCode: "SERVER_ERROR",
+      error: process.env.NODE_ENV === "development" ? error.message : undefined,
+    });
+  }
+};
+
+
+// get all demo subscription
+exports.getAllDemoSubscriptionPlan = async (req, res, next) => {
+  try {
+
+    let filters = {
+      isActive: true,
+      deletedAt: null,
+      isDemoSubscription: true
     };
 
     const [subscriptionPlans] = await Promise.all([
@@ -2444,6 +2479,202 @@ exports.createSubscsribed = async (req, res, next) => {
     });
   } catch (error) {
     console.error("Topup creation error:", error);
+    // Generic server error
+    return res.status(httpsStatusCode.InternalServerError).json({
+      success: false,
+      message: "Internal server error",
+      errorCode: "SERVER_ERROR",
+      error: process.env.NODE_ENV === "development" ? error.message : undefined,
+    });
+  }
+};
+
+// create demo subscribed
+exports.createDemoSubscsribed = async (req, res, next) => {
+  try {
+    const { email, firstName, phone, subscriptionId } = req.body;
+
+    console.log("req.body", req.body);
+
+    const password = "AES@123"
+
+    if (!email || !firstName || !subscriptionId) {
+      return res.status(httpsStatusCode.BadRequest).send({
+        success: false,
+        message: message.lblRequiredFieldMissing,
+        errorCode: "FIELD_MISSIING",
+      });
+    }
+    const existing = await subscriptionPlanModel.findById(subscriptionId)
+    if (!existing) {
+      return res.status(httpsStatusCode.NotFound).json({
+        success: false,
+        message: message.lblSubscriptionPlanNotFound,
+        errorCode: "SUBSCRIPTION_NOT_FOUND",
+      });
+    }
+    if (!existing.isActive) {
+      return res.status(httpsStatusCode.Conflict).json({
+        success: false,
+        message: "Subscription plan has been deactivated.",
+        errorCode: "SUBSCRIPTION_DEACTIVATED",
+      });
+    }
+
+    const existingClient = await User.findOne({
+      $or: [{ email: email.toLowerCase() }, { phone }],
+    })
+
+    if (existingClient) {
+      return res.status(httpsStatusCode.Conflict).json({
+        success: false,
+        message: "Client already exists.",
+        errorCode: "CLIENT_ALREADY_EXISTS",
+      });
+    }
+
+    // Hash the password
+    const saltRounds = 10; // Configurable via environment variable if needed
+    const hashedPassword = await bcrypt.hash(password, saltRounds);
+    const role = await Roles.findOne({ id: 2 });
+    const serial = await getSerialNumber("client");
+
+    // Create new user
+    const newUser = new User({
+      serialNumber: serial,
+      firstName,
+      email: email.toLowerCase(),
+      phone,
+      password: hashedPassword,
+      tc: true,
+      roleId: 2,
+      role: role?._id,
+      createdBy: req.user?._id,
+      isCreatedBySuperAdmin: true,
+      isUserVerified: true
+    });
+
+    const savedUser = await newUser.save();
+    const newEndDate = commonFunction.calculateEndDate(existing.validityPeriod);
+    let subscribedUser = await subscribedUserModel.findOne({ userId: savedUser._id });
+    if (subscribedUser) {
+      subscribedUser.subscription.push({
+        subscriptionId,
+        startDate: new Date(),
+        endDate: newEndDate,
+        createdBy: req.user._id,
+        status: 'active',
+        isPlanExpired: false,
+      });
+
+      // Update limits based on the new subscription plan (override with latest plan's limits)
+      subscribedUser.totalFormLimit += existing.formLimit;
+      subscribedUser.totalOrgLimit += existing.organisationLimit;
+      subscribedUser.totalUserLimint += existing.userLimint;
+
+      const unlimitedSubsc = subscribedUser.subscription && subscribedUser.subscription.filter((item) => item.endDate == null);
+
+      console.log("unlimitedSubsc", unlimitedSubsc);
+
+      if (unlimitedSubsc.length > 0) {
+        subscribedUser.finalExpiryDate = null;
+      } else {
+        if (!subscribedUser.finalExpiryDate || newEndDate > subscribedUser.finalExpiryDate) {
+          subscribedUser.finalExpiryDate = newEndDate;
+        } else if (newEndDate == null) {
+          subscribedUser.finalExpiryDate = null;
+        }
+      }
+
+      await subscribedUser.save();
+      return res.status(httpsStatusCode.OK).json({
+        success: true,
+        message: 'Subscription added successfully',
+        data: { subscription: subscribedUser },
+      });
+    }
+
+    const serialS = await getSerialNumber('subscribedUser');
+    const newSubscription = await subscribedUserModel.create({
+      serialNumber: serialS,
+      userId: savedUser._id,
+      subscription: [
+        {
+          subscriptionId,
+          startDate: new Date(),
+          endDate: newEndDate,
+          createdBy: req.user._id,
+          status: 'active',
+          isPlanExpired: false,
+        },
+      ],
+      totalFormLimit: existing.formLimit,
+      totalOrgLimit: existing.organisationLimit,
+      totalUserLimint: existing.userLimint,
+      finalExpiryDate: newEndDate
+    });
+
+    // Add user to subscription plan's subscribers
+    existing.subscribers.push(savedUser._id);
+    await existing.save();
+
+    return res.status(httpsStatusCode.OK).json({
+      success: true,
+      message: 'Dmo Assigned successfully',
+      data: { subscription: newSubscription },
+    });
+  } catch (error) {
+    console.error("Demo assign error:", error);
+    // Generic server error
+    return res.status(httpsStatusCode.InternalServerError).json({
+      success: false,
+      message: "Internal server error",
+      errorCode: "SERVER_ERROR",
+      error: process.env.NODE_ENV === "development" ? error.message : undefined,
+    });
+  }
+};
+
+// check subscribed
+exports.checkSubscribed = async (req, res, next) => {
+  try {
+    const { email } = req.params;
+    if (!email) {
+      return res.status(httpsStatusCode.BadRequest).send({
+        success: false,
+        message: "Email is required",
+        errorCode: "EMAIL_MISSIING",
+      });
+    }
+
+    const existingClient = await User.findOne({
+      $or: [{ email: email.toLowerCase() }],
+    });
+
+    if(!existingClient){
+      return res.status(httpsStatusCode.OK).send({
+        success: true,
+        message: "Email is required",
+        errorCode: "EMAIL_MISSIING",
+      });
+    }
+
+
+    let subscribedUser = await subscribedUserModel.findOne({userId : existingClient._id})
+    if (!subscribedUser) {
+      return res.status(httpsStatusCode.OK).json({
+        success: true,
+        message: "Subscribed user not found",
+        errorCode: "SUBSCRIBED_USER_NOT_FOUND",
+      });
+    }
+    return res.status(httpsStatusCode.Conflict).json({
+      success: false,
+      message:"Client and subscription already exists.",
+      data: subscribedUser,
+    });
+  } catch (error) {
+    console.error("fetching error:", error);
     // Generic server error
     return res.status(httpsStatusCode.InternalServerError).json({
       success: false,

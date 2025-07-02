@@ -178,6 +178,9 @@ router.get('/get/subscription/list', entityAuth?.authorizeEntity("Administration
 
 router.get('/get/all/subscription', entityAuth?.authorizeEntity("Administration", "Subscription", "view"), superAdminController.getAllSubscriptionPlan);
 
+router.get('/get/all/demo/subscription', entityAuth?.authorizeEntity("Administration", "Subscription", "view"), superAdminController.getAllDemoSubscriptionPlan);
+
+
 router.post("/activeInactive/subscription", entityAuth?.authorizeEntity("Administration", "Subscription", "update"), superAdminController.activeInactiveSubscription);
 
 router.get('/get/subscription/:id', entityAuth?.authorizeEntity("Administration", "Subscription", "view"), superAdminController.getIndividualSubscriptionPlan);
@@ -216,6 +219,10 @@ router.post('/restore/topup', entityAuth?.authorizeEntity("Administration", "Top
 // --------- subscribed user routes starts here ---------
 
 router.post("/create/subscribed", entityAuth?.authorizeEntity("Administration", "Subscribed", "create"), superAdminController.createSubscsribed);
+
+router.post("/create/demo/subscribed", entityAuth?.authorizeEntity("Administration", "Subscribed", "create"), superAdminController.createDemoSubscsribed);
+
+router.get("/check/subscribed/:email", entityAuth?.authorizeEntity("Administration", "Subscribed", "create"), superAdminController.checkSubscribed);
 
 router.post("/create/assigntopup", entityAuth?.authorizeEntity("Administration", "Topup", "create"), superAdminController.createAssignTopup);
 

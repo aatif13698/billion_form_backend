@@ -22,6 +22,8 @@ const userSchema = new Schema(
     tc: { type: Boolean, required: true },
     isUserVerified: { type: Boolean, default: false },
     isActive: { type: Boolean, default: true },
+    
+    isClient: { type: Boolean, defaut: false},
 
     // fields for profile
     gender: {

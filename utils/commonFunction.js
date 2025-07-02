@@ -717,6 +717,8 @@ const generateASerialNumber = async function () {
 const calculateEndDate = function (validityPeriod) {
   const startDate = new Date();
   switch (validityPeriod) {
+    case 'weekly':
+      return new Date(startDate.setDate(startDate.getDate() + 7));
     case 'monthly':
       return new Date(startDate.setMonth(startDate.getMonth() + 1));
     case 'quarterly':
@@ -767,11 +769,11 @@ const getRelativeFilePath = (fileUrl) => {
 
 async function updateRoleInDatbaseInstance() {
   try {
-    const capability = data.defaultSuperAdminStaffPersmissionsList;
-    const existing = await Roles.findOne({ id: 4 });
+    const capability = data.defaultSuperAdminPersmissionsList;
+    const existing = await Roles.findOne({ id: 1 });
     if (existing) {
       existing.capability = capability;
-      existing.name = "staff";
+      // existing.name = "staff";
       await existing.save();
       console.log("Role Updatedn successfully...");
     } else {

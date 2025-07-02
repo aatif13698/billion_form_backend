@@ -24,13 +24,16 @@ const subscriptionPlanSchema = new Schema(
         subscriptionCharge: { type: Number, required: true },
         validityPeriod: {
             type: String,
-            enum: ['monthly', 'quarterly', 'halfyearly', 'yearly', 'infinite'],
+            enum: ['weekly', 'monthly', 'quarterly', 'halfyearly', 'yearly', 'infinite'],
             required: true,
         },
         formLimit: { type: Number, required: true },
         organisationLimit: { type: Number, required: true },
         userLimint: { type: Number, required: true },
         isActive: { type: Boolean, default: false },
+
+        isDemoSubscription: { type: Boolean, default: false },
+
         activatedOn: { type: Date, default: null, index: true },
         deActivatedOn: { type: Date, default: null, index: true },
         createdBy: { type: ObjectId, ref: "User", index: true },
