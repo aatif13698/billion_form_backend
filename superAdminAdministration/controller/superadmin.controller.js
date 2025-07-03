@@ -223,7 +223,8 @@ exports.createClient = async (req, res, next) => {
       role: role?._id,
       createdBy: req.user?._id,
       isCreatedBySuperAdmin: true,
-      isUserVerified: true
+      isUserVerified: true,
+      isClient: true
     });
 
     const savedUser = await newUser.save();
@@ -1589,6 +1590,38 @@ exports.getCompany = async (req, res, next) => {
   }
 };
 
+
+// check compnay exists
+exports.checkCompanyExists = async (req, res, next) => {
+  try {
+    const { email } = req.params;
+    const company = await companyModel.findOne({ adminEmail: email }).lean();
+    if (!company) {
+      return res.status(httpsStatusCode.NotFound).json({
+        success: false,
+        message: "Company not found.",
+        errorCode: "COMPANY_NOT_FOUND",
+      });
+    }
+    return res.status(httpsStatusCode.OK).json({
+      success: true,
+      message: message.lblCompanyFoundSuccessfully,
+      data: {
+        data: company,
+      },
+    });
+
+  } catch (error) {
+    console.error("company fetching error:", error);
+    return res.status(httpsStatusCode.InternalServerError).json({
+      success: false,
+      message: "Internal server error",
+      errorCode: "SERVER_ERROR",
+      error: process.env.NODE_ENV === "development" ? error.message : undefined,
+    });
+  }
+};
+
 // active inactive company
 exports.activeInactiveCompany = async (req, res, next) => {
   try {
@@ -1863,6 +1896,7 @@ exports.getAllSubscriptionPlan = async (req, res, next) => {
     let filters = {
       isActive: true,
       deletedAt: null,
+      isDemoSubscription: false
     };
 
     const [subscriptionPlans] = await Promise.all([
@@ -1874,7 +1908,7 @@ exports.getAllSubscriptionPlan = async (req, res, next) => {
       message: message.lblSubscriptionPlanFoundSuccessfully,
       data: {
         data: subscriptionPlans,
-      },
+      },   
     });
   } catch (error) {
     console.error("Subscription fetching error:", error);
@@ -2551,7 +2585,8 @@ exports.createDemoSubscsribed = async (req, res, next) => {
       role: role?._id,
       createdBy: req.user?._id,
       isCreatedBySuperAdmin: true,
-      isUserVerified: true
+      isUserVerified: true,
+      isClient: false
     });
 
     const savedUser = await newUser.save();
@@ -2651,7 +2686,7 @@ exports.checkSubscribed = async (req, res, next) => {
       $or: [{ email: email.toLowerCase() }],
     });
 
-    if(!existingClient){
+    if (!existingClient) {
       return res.status(httpsStatusCode.OK).send({
         success: true,
         message: "Email is required",
@@ -2660,7 +2695,7 @@ exports.checkSubscribed = async (req, res, next) => {
     }
 
 
-    let subscribedUser = await subscribedUserModel.findOne({userId : existingClient._id})
+    let subscribedUser = await subscribedUserModel.findOne({ userId: existingClient._id })
     if (!subscribedUser) {
       return res.status(httpsStatusCode.OK).json({
         success: true,
@@ -2670,7 +2705,7 @@ exports.checkSubscribed = async (req, res, next) => {
     }
     return res.status(httpsStatusCode.Conflict).json({
       success: false,
-      message:"Client and subscription already exists.",
+      message: "Client and subscription already exists.",
       data: subscribedUser,
     });
   } catch (error) {
@@ -2775,41 +2810,175 @@ exports.createAssignTopup = async (req, res, next) => {
 };
 
 // get list subscribed user
+// exports.getListSubscsribed = async (req, res, next) => {
+//   try {
+//     const { keyword = '', page = 1, perPage = 10, } = req.query;
+//     const limit = perPage
+//     const skip = (page - 1) * limit;
+//     const keywordRegex = { $regex: keyword.trim(), $options: "i" };
+//     let filters = {
+//       ...(keyword && {
+//         $or: [
+//           { serialNumber: keywordRegex },
+//         ]
+//       }),
+//     };
+//     const [subscribedUsers, total] = await Promise.all([
+//       subscribedUserModel.find(filters).skip(skip).limit(limit).sort({ _id: -1 }).populate({
+//         path: "userId",
+//         select: 'firstName lastName email phone _id'
+//       }),
+//       subscribedUserModel.countDocuments(filters),
+//     ]);
+//     return res.status(httpsStatusCode.OK).json({
+//       success: true,
+//       message: message.lblSubscribedUserFoundSuccessfully,
+//       data: {
+//         data: subscribedUsers,
+//         total: total
+//       },
+//     });
+//   } catch (error) {
+//     console.error("Topup fetching error:", error);
+//     return res.status(httpsStatusCode.InternalServerError).json({
+//       success: false,
+//       message: "Internal server error",
+//       errorCode: "SERVER_ERROR",
+//       error: process.env.NODE_ENV === "development" ? error.message : undefined,
+//     });
+//   }
+// };
+
+// new
 exports.getListSubscsribed = async (req, res, next) => {
   try {
-    const { keyword = '', page = 1, perPage = 10, } = req.query;
-    const limit = perPage
-    const skip = (page - 1) * limit;
-    const keywordRegex = { $regex: keyword.trim(), $options: "i" };
+    const { keyword = '', page = 1, perPage = 10 } = req.query;
+    const limit = parseInt(perPage);
+    const skip = (parseInt(page) - 1) * limit;
+    const keywordRegex = { $regex: keyword.trim(), $options: 'i' };
+
     let filters = {
       ...(keyword && {
-        $or: [
-          { serialNumber: keywordRegex },
-        ]
+        $or: [{ serialNumber: keywordRegex }],
       }),
     };
+
     const [subscribedUsers, total] = await Promise.all([
-      subscribedUserModel.find(filters).skip(skip).limit(limit).sort({ _id: -1 }).populate({
-        path: "userId",
-        select: 'firstName lastName email phone _id'
-      }),
-      subscribedUserModel.countDocuments(filters),
+      subscribedUserModel
+        .find(filters)
+        .skip(skip)
+        .limit(limit)
+        .sort({ _id: -1 })
+        .populate({
+          path: 'userId',
+          match: { isClient: true }, // Filter users with isClient: true
+          select: 'firstName lastName email phone _id',
+        })
+        .lean()
+        .then((users) =>
+          // Filter out documents where userId is null after population
+          users.filter((user) => user.userId !== null)
+        ),
+      subscribedUserModel
+        .aggregate([
+          { $match: filters },
+          {
+            $lookup: {
+              from: 'users', // The collection name for the User model
+              localField: 'userId',
+              foreignField: '_id',
+              pipeline: [{ $match: { isClient: true } }],
+              as: 'userId',
+            },
+          },
+          { $match: { userId: { $ne: [] } } }, // Ensure userId is not empty
+          { $count: 'total' },
+        ])
+        .then((result) => (result[0]?.total || 0)),
     ]);
-    return res.status(httpsStatusCode.OK).json({
+
+    return res.status(200).json({
       success: true,
-      message: message.lblSubscribedUserFoundSuccessfully,
+      message: 'Subscribed users found successfully',
       data: {
         data: subscribedUsers,
-        total: total
+        total: total,
       },
     });
   } catch (error) {
-    console.error("Topup fetching error:", error);
-    return res.status(httpsStatusCode.InternalServerError).json({
+    console.error('Subscribed users fetching error:', error);
+    return res.status(500).json({
       success: false,
-      message: "Internal server error",
-      errorCode: "SERVER_ERROR",
-      error: process.env.NODE_ENV === "development" ? error.message : undefined,
+      message: 'Internal server error',
+      errorCode: 'SERVER_ERROR',
+      error: process.env.NODE_ENV === 'development' ? error.message : undefined,
+    });
+  }
+};
+
+// get list demo subscribed user
+exports.getListDemoSubscsribed = async (req, res, next) => {
+  try {
+    const { keyword = '', page = 1, perPage = 10 } = req.query;
+    const limit = parseInt(perPage);
+    const skip = (parseInt(page) - 1) * limit;
+    const keywordRegex = { $regex: keyword.trim(), $options: 'i' };
+
+    let filters = {
+      ...(keyword && {
+        $or: [{ serialNumber: keywordRegex }],
+      }),
+    };
+
+    const [subscribedUsers, total] = await Promise.all([
+      subscribedUserModel
+        .find(filters)
+        .skip(skip)
+        .limit(limit)
+        .sort({ _id: -1 })
+        .populate({
+          path: 'userId',
+          match: { isClient: false }, // Filter users with isClient: false
+          select: 'firstName lastName email phone _id',
+        })
+        .lean()
+        .then((users) =>
+          // Filter out documents where userId is null after population
+          users.filter((user) => user.userId !== null)
+        ),
+      subscribedUserModel
+        .aggregate([
+          { $match: filters },
+          {
+            $lookup: {
+              from: 'users', // The collection name for the User model
+              localField: 'userId',
+              foreignField: '_id',
+              pipeline: [{ $match: { isClient: false } }],
+              as: 'userId',
+            },
+          },
+          { $match: { userId: { $ne: [] } } }, // Ensure userId is not empty
+          { $count: 'total' },
+        ])
+        .then((result) => (result[0]?.total || 0)),
+    ]);
+
+    return res.status(200).json({
+      success: true,
+      message: 'Subscribed users found successfully',
+      data: {
+        data: subscribedUsers,
+        total: total,
+      },
+    });
+  } catch (error) {
+    console.error('Subscribed users fetching error:', error);
+    return res.status(500).json({
+      success: false,
+      message: 'Internal server error',
+      errorCode: 'SERVER_ERROR',
+      error: process.env.NODE_ENV === 'development' ? error.message : undefined,
     });
   }
 };

@@ -75,6 +75,8 @@ router.post('/create-company', entityAuth?.authorizeEntity("Administration", "Co
 // update company
 router.post('/update-company', entityAuth?.authorizeEntity("Administration", "Companies", "update"), superAdminController.updateCompany);
 
+router.get('/check-company/:email', entityAuth?.authorizeEntity("Administration", "Companies", "update"), superAdminController.checkCompanyExists);
+
 router.delete('/softdelete-company', entityAuth?.authorizeEntity("Administration", "Companies", "softDelete"), superAdminController.softDeleteCompany);
 
 router.post('/restore-company', entityAuth?.authorizeEntity("Administration", "Companies", "update"), superAdminController.restoreCompany);
@@ -227,6 +229,8 @@ router.get("/check/subscribed/:email", entityAuth?.authorizeEntity("Administrati
 router.post("/create/assigntopup", entityAuth?.authorizeEntity("Administration", "Topup", "create"), superAdminController.createAssignTopup);
 
 router.get('/get/subscribed/list', entityAuth?.authorizeEntity("Administration", "Subscribed", "view"), superAdminController.getListSubscsribed);
+
+router.get('/get/demo/subscribed/list', entityAuth?.authorizeEntity("Administration", "Subscribed", "view"), superAdminController.getListDemoSubscsribed);
 
 router.post("/activeInactive/subscribed", entityAuth?.authorizeEntity("Administration", "Subscribed", "update"), superAdminController.activeInactiveTopup);
 
