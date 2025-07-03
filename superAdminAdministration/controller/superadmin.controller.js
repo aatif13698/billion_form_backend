@@ -255,6 +255,47 @@ exports.createClient = async (req, res, next) => {
   }
 };
 
+// convert to client
+exports.converrtToClient = async (req, res, next) => {
+  try {
+    const { clientId} = req.body;
+    if(!clientId){
+       return res.status(httpsStatusCode.BadRequest).json({
+        success: false,
+        message: message.lblClientIdrequired,
+        errorCode: "CLIENT_ID_REQUIRED",
+      });
+
+    }   
+    const existingUser = await User.findById(clientId);
+    if (!existingUser) {
+      return res.status(httpsStatusCode.NotFound).json({
+        success: false,
+        message: message.lblClientNotFound || "Client not found",
+        errorCode: "CLIENT_NOT_FOUND",
+      });
+    }
+    existingUser.isClient = true;
+    await existingUser.save()
+    return res.status(httpsStatusCode.OK).json({
+      success: true,
+      message: "Lead converted successfully.",
+      data: {
+        user: existingUser,
+      },
+    });
+  } catch (error) {
+    console.error("Lead update error:", error);
+    // Generic server error
+    return res.status(httpsStatusCode.InternalServerError).json({
+      success: false,
+      message: "Internal server error",
+      errorCode: "SERVER_ERROR",
+      error: process.env.NODE_ENV === "development" ? error.message : undefined,
+    });
+  }
+};
+
 // update client
 exports.updateClient = async (req, res, next) => {
   try {

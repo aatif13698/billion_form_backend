@@ -107,6 +107,8 @@ router
 
 router.post("/create/cleint", entityAuth?.authorizeEntity("Administration", "Clients", "create"), superAdminController.createClient);
 
+router.post("/convert/to/cleint", entityAuth?.authorizeEntity("Administration", "Clients", "create"), superAdminController.converrtToClient); 
+
 router.post('/update/client', entityAuth?.authorizeEntity("Administration", "Clients", "update"), superAdminController.updateClient);
 
 router.get('/get/client', entityAuth?.authorizeEntity("Administration", "Clients", "view"), superAdminController.getClientsList);
