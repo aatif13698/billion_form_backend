@@ -9,6 +9,7 @@ const message = require("../../utils/message");
 require('dotenv').config(); // Load environment variables first
 const { validationResult } = require('express-validator');
 const path = require('path'); // Make sure this is at the top of your file
+const moment = require('moment'); // For date manipulation
 
 
 
@@ -7301,3 +7302,182 @@ exports.addReply = async (req, res) => {
     });
   }
 }
+
+
+
+
+
+// --------- Dashboard controller starts here --------
+
+
+// Helper function to validate ObjectId
+const isValidObjectId = (id) => mongoose.Types.ObjectId.isValid(id);
+
+// Helper function to get start and end of the current week
+const getWeekRange = () => {
+  const startOfWeek = moment().startOf('isoWeek').toDate(); // Monday
+  const endOfWeek = moment().endOf('isoWeek').toDate(); // Sunday
+  return { startOfWeek, endOfWeek };
+};
+
+exports.dashboardDataForSuperAdmin = async (req, res, next) => {
+  try {
+    // Validate companyId
+     const company = req.company;
+    // const { companyId } = req.params;
+    if (!isValidObjectId(company._id)) {
+      return res.status(400).json({
+        success: false,
+        message: 'Invalid company ID.',
+        errorCode: 'INVALID_COMPANY_ID',
+      });
+    }
+
+    // Get week range for time-based queries
+    const { startOfWeek, endOfWeek } = getWeekRange();
+
+    // Aggregate queries for efficiency
+    const [
+      clientsCount,
+      usersCount,
+      organizationsCount,
+      staffsCount,
+      requestsCount,
+      requestsThisWeekCount,
+      leadsCount,
+      totalFormsSubmitted,
+      totalFormsSubmittedThisWeek,
+    ] = await Promise.all([
+      // Count clients (roleId: 2, isClient: true)
+      User.countDocuments({ roleId: 2, isClient: true }),
+
+      // Count users (roleId: 3, companyId)
+      User.countDocuments({ roleId: 3, companyId : company._id }),
+
+      // Count organizations (companyId)
+      organizationModel.countDocuments({ companyId: company._id }),
+
+      // Count staffs (roleId not in [1, 2], companyId)
+      User.countDocuments({ roleId: { $nin: [1, 2, 3] }, companyId: company._id }),
+
+      // Count all requests
+      UserRequest.countDocuments({ deletedAt: null }),
+
+      // Count requests this week
+      UserRequest.countDocuments({
+        deletedAt: null,
+        createdAt: { $gte: startOfWeek, $lte: endOfWeek },
+      }),
+
+      // Count leads (roleId: 2, isClient: false)
+      User.countDocuments({ roleId: 2, isClient: false }),
+
+      // Count total forms submitted (companyId)
+      formDataModel.countDocuments({ companyId: company._id }),
+
+      // Count forms submitted this week (companyId)
+      formDataModel.countDocuments({
+        companyId: company._id,
+        createdAt: { $gte: startOfWeek, $lte: endOfWeek },
+      }),
+    ]);
+
+    // Response structure
+    return res.status(200).json({
+      success: true,
+      message: 'Dashboard data found successfully.',
+      data: {
+        clients: clientsCount,
+        users: usersCount,
+        organizations: organizationsCount,
+        staffs: staffsCount,
+        requests: requestsCount,
+        requestsThisWeek: requestsThisWeekCount,
+        leads: leadsCount,
+        totalFormsSubmitted,
+        totalFormsSubmittedThisWeek,
+      },
+    });
+  } catch (error) {
+    console.error('Dashboard data retrieval error:', error);
+    return res.status(500).json({
+      success: false,
+      message: 'Internal server error.',
+      errorCode: 'SERVER_ERROR',
+      error: process.env.NODE_ENV === 'development' ? error.message : undefined,
+    });
+  }
+};
+
+
+// get client dasboard data
+exports.dashboardDataForClient = async (req, res, next) => {
+  try {
+    // Validate companyId
+     const company = req.company;
+    // const { companyId } = req.params;
+    if (!isValidObjectId(company._id)) {
+      return res.status(400).json({
+        success: false,
+        message: 'Invalid company ID.',
+        errorCode: 'INVALID_COMPANY_ID',
+      });
+    }
+
+    // Get week range for time-based queries
+    const { startOfWeek, endOfWeek } = getWeekRange();
+
+    // Aggregate queries for efficiency
+    const [
+      usersCount,
+      organizationsCount,
+      leadsCount,
+      totalFormsSubmitted,
+      totalFormsSubmittedThisWeek,
+    ] = await Promise.all([
+
+      // Count users (roleId: 3, companyId)
+      User.countDocuments({ roleId: 3, companyId : company._id }),
+
+      // Count organizations (companyId)
+      organizationModel.countDocuments({ companyId: company._id }),
+
+      // Count leads (roleId: 2, isClient: false)
+      User.countDocuments({ roleId: 2, isClient: false }),
+
+      // Count total forms submitted (companyId)
+      formDataModel.countDocuments({ companyId: company._id }),
+
+      // Count forms submitted this week (companyId)
+      formDataModel.countDocuments({
+        companyId: company._id,
+        createdAt: { $gte: startOfWeek, $lte: endOfWeek },
+      }),
+    ]);
+
+    // Response structure
+    return res.status(200).json({
+      success: true,
+      message: 'Dashboard data found successfully.',
+      data: {
+        users: usersCount,
+        organizations: organizationsCount,
+        leads: leadsCount,
+        totalFormsSubmitted,
+        totalFormsSubmittedThisWeek,
+      },
+    });
+  } catch (error) {
+    console.error('Dashboard data retrieval error:', error);
+    return res.status(500).json({
+      success: false,
+      message: 'Internal server error.',
+      errorCode: 'SERVER_ERROR',
+      error: process.env.NODE_ENV === 'development' ? error.message : undefined,
+    });
+  }
+};
+
+
+
+// ---------- Dashboard controller ends here ------------ 

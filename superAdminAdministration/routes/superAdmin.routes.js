@@ -6,7 +6,7 @@ const bcrypt = require("bcrypt")
 const router = express.Router();
 const superAdminController = require("../controller/superadmin.controller");
 const { validateLoginInput, startCompanyServer, validateClientInput, getSerialNumber } = require("../../utils/commonFunction");
-const { superAdminAuth, superAdminAndClientAuth } = require("../../middleware/authorization/superAdmin");
+const { superAdminAuth, superAdminAndClientAuth, commonAuth } = require("../../middleware/authorization/superAdmin");
 const entityAuth = require("../../middleware/authorization/entityAuth");
 const { body, param } = require('express-validator');
 
@@ -544,6 +544,21 @@ router.post('/:id/reply', superAdminAuth, superAdminController.addReply );
 
 
 // --------- Request a demo rooute ends here ----------------
+
+
+
+// --------- Dashboard routes starts here -----------
+
+
+router.get('/get/data/dashboard/superadmin', superAdminAuth, superAdminController.dashboardDataForSuperAdmin);
+
+router.get('/get/data/dashboard/client', commonAuth, superAdminController.dashboardDataForClient);
+
+
+
+
+// --------- Dashboard routes ends here -----------
+
 
 
 exports.router = router;

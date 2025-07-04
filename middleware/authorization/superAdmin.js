@@ -151,3 +151,74 @@ exports.superAdminAndClientAuth = async (req, res, next) => {
     });
   }
 };
+
+
+// common authentication middleware
+exports.commonAuth = async (req, res, next) => {
+  const { authorization } = req.headers;
+
+  console.log("Authorization Header:", authorization);
+
+  // Check if Authorization header exists and starts with "Bearer"
+  if (!authorization || !authorization.startsWith("Bearer ")) {
+    return res.status(statusCode.Unauthorized).json({
+      message: message.lblNoToken || "No token provided",
+    });
+  }
+
+  // Extract token
+  const token = authorization.split(" ")[1];
+  if (!token || token === "undefined") {
+    return res.status(statusCode.Unauthorized).json({
+      message: message.lblNoToken || "Token is missing or invalid",
+    });
+  }
+
+  try {
+    // Verify token with PRIVATEKEY
+    const decoded = jwt.verify(token, PRIVATEKEY);
+    // console.log("Decoded Token:", decoded);
+
+    const { userId } = decoded;
+    if (!userId) {
+      return res.status(statusCode.Unauthorized).json({
+        message: message.lblUnauthorizeUser || "Invalid token payload",
+      });
+    }
+
+    // Fetch user from database
+    const user = await userModel.findById(userId);
+    if (!user) {
+      return res.status(statusCode.NotFound).json({
+        message: message.lblUserNotFound || "User not found",
+      });
+    }
+
+    // if (user.roleId > 3) {
+    //   return res.status(statusCode.Forbidden).json({
+    //     message: message.lblUnauthorizeUser || "Access denied",
+    //   });
+    // }
+
+    // Attach user to request and proceed
+    req.user = user;
+    next();
+  } catch (error) {
+    console.error("Token Verification Error:", error.message);
+    if (error.name === "JsonWebTokenError") {
+      return res.status(statusCode.Unauthorized).json({
+        message: "Invalid token signature",
+        details: error.message,
+      });
+    } else if (error.name === "TokenExpiredError") {
+      return res.status(statusCode.Unauthorized).json({
+        message: "Token has expired",
+        details: error.message,
+      });
+    }
+    return res.status(statusCode.InternalServerError).json({
+      message: "Authentication error",
+      details: error.message,
+    });
+  }
+};
