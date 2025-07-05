@@ -7431,7 +7431,6 @@ exports.dashboardDataForClient = async (req, res, next) => {
     const [
       usersCount,
       organizationsCount,
-      leadsCount,
       totalFormsSubmitted,
       totalFormsSubmittedThisWeek,
     ] = await Promise.all([
@@ -7441,9 +7440,6 @@ exports.dashboardDataForClient = async (req, res, next) => {
 
       // Count organizations (companyId)
       organizationModel.countDocuments({ companyId: company._id }),
-
-      // Count leads (roleId: 2, isClient: false)
-      User.countDocuments({ roleId: 2, isClient: false }),
 
       // Count total forms submitted (companyId)
       formDataModel.countDocuments({ companyId: company._id }),
@@ -7462,7 +7458,6 @@ exports.dashboardDataForClient = async (req, res, next) => {
       data: {
         users: usersCount,
         organizations: organizationsCount,
-        leads: leadsCount,
         totalFormsSubmitted,
         totalFormsSubmittedThisWeek,
       },
